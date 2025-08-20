@@ -1,3 +1,4 @@
+import https from 'https';
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { config } from './config.js';
 
@@ -5,8 +6,8 @@ import { config } from './config.js';
 export class ConfluenceClient {
   private axiosInstance: AxiosInstance;
 
-  constructor(token: string) {
-    this.axiosInstance = axios.create({
+  constructor (token: string) {
+    const axiosConfig: any = {
       baseURL: config.confluenceBaseUrl,
       timeout: 30000,
       headers: {
@@ -14,7 +15,17 @@ export class ConfluenceClient {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
-    });
+    };
+
+    // Если включено игнорирование SSL ошибок
+    if (process.env.IGNORE_SSL_ERRORS === 'true') {
+      axiosConfig.httpsAgent = new https.Agent({
+        rejectUnauthorized: false,
+      });
+    }
+
+    this.axiosInstance = axios.create(axiosConfig);
+
 
     // Add request interceptor for logging
     this.axiosInstance.interceptors.request.use(
@@ -22,7 +33,7 @@ export class ConfluenceClient {
         console.log(`[Confluence API] ${config.method?.toUpperCase()} ${config.url}`);
         return config;
       },
-      (error) => Promise.reject(error)
+      (error) => Promise.reject(error),
     );
 
     // Add response interceptor for error handling
@@ -33,21 +44,21 @@ export class ConfluenceClient {
           status: error.response?.status,
           statusText: error.response?.statusText,
           url: error.config?.url,
-          data: error.response?.data
+          data: error.response?.data,
         });
         return Promise.reject(error);
-      }
+      },
     );
   }
 
   // Get all spaces
-  async getSpaces(): Promise<ConfluenceSpace[]> {
+  async getSpaces (): Promise<ConfluenceSpace[]> {
     try {
       const response = await this.axiosInstance.get('/rest/api/space', {
         params: {
           start: 0,
-          limit: 1000
-        }
+          limit: 1000,
+        },
       });
 
       return response.data.results.map((space: any) => ({
@@ -63,7 +74,7 @@ export class ConfluenceClient {
   }
 
   // Get root pages for a space
-  async getSpacePages(spaceKey: string): Promise<ConfluencePage[]> {
+  async getSpacePages (spaceKey: string): Promise<ConfluencePage[]> {
     try {
       const response = await this.axiosInstance.get('/rest/api/content', {
         params: {
@@ -71,13 +82,13 @@ export class ConfluenceClient {
           type: 'page',
           expand: 'ancestors,children.page',
           start: 0,
-          limit: 1000
-        }
+          limit: 1000,
+        },
       });
 
       // Filter for root pages (no ancestors)
-      const rootPages = response.data.results.filter((page: any) => 
-        !page.ancestors || page.ancestors.length === 0
+      const rootPages = response.data.results.filter((page: any) =>
+        !page.ancestors || page.ancestors.length === 0,
       );
 
       return rootPages.map((page: any) => ({
@@ -86,7 +97,7 @@ export class ConfluenceClient {
         type: page.type,
         status: page.status,
         hasChildren: page.children?.page?.size > 0,
-        spaceKey: spaceKey
+        spaceKey: spaceKey,
       }));
     } catch (error) {
       console.error('Error fetching space pages:', error);
@@ -95,14 +106,14 @@ export class ConfluenceClient {
   }
 
   // Get child pages for a parent page
-  async getChildPages(parentId: string): Promise<ConfluencePage[]> {
+  async getChildPages (parentId: string): Promise<ConfluencePage[]> {
     try {
       const response = await this.axiosInstance.get(`/rest/api/content/${parentId}/child/page`, {
         params: {
           start: 0,
           limit: 1000,
-          expand: 'children.page'
-        }
+          expand: 'children.page',
+        },
       });
 
       return response.data.results.map((page: any) => ({
@@ -111,7 +122,7 @@ export class ConfluenceClient {
         type: page.type,
         status: page.status,
         hasChildren: page.children?.page?.size > 0,
-        parentId: parentId
+        parentId: parentId,
       }));
     } catch (error) {
       console.error('Error fetching child pages:', error);
@@ -120,12 +131,12 @@ export class ConfluenceClient {
   }
 
   // Get page content with HTML
-  async getPageContent(pageId: string): Promise<ConfluencePageContent> {
+  async getPageContent (pageId: string): Promise<ConfluencePageContent> {
     try {
       const response = await this.axiosInstance.get(`/rest/api/content/${pageId}`, {
         params: {
-          expand: 'body.view,space,ancestors'
-        }
+          expand: 'body.view,space,ancestors',
+        },
       });
 
       const page = response.data;
@@ -145,7 +156,7 @@ export class ConfluenceClient {
         spaceName: page.space?.name || '',
         url: `${config.confluenceBaseUrl}/pages/viewpage.action?pageId=${page.id}`,
         lastModified: page.version?.when || '',
-        version: page.version?.number || 1
+        version: page.version?.number || 1,
       };
     } catch (error) {
       console.error('Error fetching page content:', error);
@@ -154,12 +165,12 @@ export class ConfluenceClient {
   }
 
   // Normalize relative URLs to absolute URLs
-  private normalizeUrls(html: string): string {
+  private normalizeUrls (html: string): string {
     const baseUrl = config.confluenceBaseUrl;
 
     // Replace relative src attributes
     html = html.replace(/src="\/([^"]*)/g, `src="${baseUrl}/$1`);
-    
+
     // Replace relative href attributes
     html = html.replace(/href="\/([^"]*)/g, `href="${baseUrl}/$1`);
 
@@ -171,14 +182,14 @@ export class ConfluenceClient {
   }
 
   // Optional: Embed images as base64 (can be heavy, use with caution)
-  private async embedImages(html: string): Promise<string> {
+  private async embedImages (html: string): Promise<string> {
     const imgRegex = /<img[^>]+src="([^"]*)"[^>]*>/g;
     const images = [...html.matchAll(imgRegex)];
 
     for (const imgMatch of images) {
       try {
         const imgUrl = imgMatch[1];
-        
+
         // Skip if already base64 or external
         if (imgUrl.startsWith('data:') || !imgUrl.includes(config.confluenceBaseUrl)) {
           continue;
@@ -187,7 +198,7 @@ export class ConfluenceClient {
         // Fetch image
         const response = await this.axiosInstance.get(imgUrl, {
           responseType: 'arraybuffer',
-          timeout: 10000
+          timeout: 10000,
         });
 
         const contentType = response.headers['content-type'] || 'image/png';
@@ -207,7 +218,7 @@ export class ConfluenceClient {
   }
 
   // Test connection and token validity
-  async testConnection(): Promise<boolean> {
+  async testConnection (): Promise<boolean> {
     try {
       const response = await this.axiosInstance.get('/rest/api/user/current');
       console.log(`[Confluence] Connected as: ${response.data.displayName} (${response.data.email})`);
@@ -219,7 +230,7 @@ export class ConfluenceClient {
   }
 
   // Get descendants (all child pages recursively)
-  async getDescendants(pageId: string, maxDepth: number = 10): Promise<ConfluencePage[]> {
+  async getDescendants (pageId: string, maxDepth: number = 10): Promise<ConfluencePage[]> {
     const descendants: ConfluencePage[] = [];
     const visited = new Set<string>();
 
@@ -227,13 +238,13 @@ export class ConfluenceClient {
       if (depth >= maxDepth || visited.has(parentId)) {
         return;
       }
-      
+
       visited.add(parentId);
-      
+
       try {
         const children = await this.getChildPages(parentId);
         descendants.push(...children);
-        
+
         // Recursively fetch children of children
         for (const child of children) {
           await fetchRecursive(child.id, depth + 1);
@@ -278,27 +289,27 @@ export interface ConfluencePageContent {
 }
 
 // Helper functions for server.ts integration
-export async function fetchSpaces(token: string): Promise<ConfluenceSpace[]> {
+export async function fetchSpaces (token: string): Promise<ConfluenceSpace[]> {
   const client = new ConfluenceClient(token);
   return client.getSpaces();
 }
 
-export async function fetchPagesBySpace(token: string, spaceKey: string): Promise<ConfluencePage[]> {
+export async function fetchPagesBySpace (token: string, spaceKey: string): Promise<ConfluencePage[]> {
   const client = new ConfluenceClient(token);
   return client.getSpacePages(spaceKey);
 }
 
-export async function fetchChildren(token: string, parentId: string): Promise<ConfluencePage[]> {
+export async function fetchChildren (token: string, parentId: string): Promise<ConfluencePage[]> {
   const client = new ConfluenceClient(token);
   return client.getChildPages(parentId);
 }
 
-export async function fetchPageHtml(token: string, pageId: string): Promise<ConfluencePageContent> {
+export async function fetchPageHtml (token: string, pageId: string): Promise<ConfluencePageContent> {
   const client = new ConfluenceClient(token);
   return client.getPageContent(pageId);
 }
 
-export async function validateToken(token: string): Promise<boolean> {
+export async function validateToken (token: string): Promise<boolean> {
   const client = new ConfluenceClient(token);
   return client.testConnection();
 }
