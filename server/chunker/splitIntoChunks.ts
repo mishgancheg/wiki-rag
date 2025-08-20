@@ -1,0 +1,331 @@
+import OpenAI from 'openai';
+import { config } from '../config.js';
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: config.openaiApiKey,
+});
+
+// JSON schema for chunk response validation
+const CHUNK_SCHEMA = {
+  type: "object",
+  properties: {
+    chunks: {
+      type: "array",
+      items: {
+        type: "string"
+      }
+    }
+  },
+  required: ["chunks"]
+};
+
+// Interface for chunk result
+export interface ChunkResult {
+  chunks: string[];
+  totalTokens?: number;
+  totalCost?: number;
+  processingTime?: number;
+}
+
+/**
+ * Split cleaned HTML content into logical chunks using OpenAI LLM
+ * @param cleanedHtml The cleaned HTML content to chunk
+ * @param options Optional parameters for chunking
+ * @returns Array of text chunks
+ */
+export async function splitIntoChunks(
+  cleanedHtml: string, 
+  options: {
+    maxChunks?: number;
+    minChunkLength?: number;
+    maxChunkLength?: number;
+  } = {}
+): Promise<ChunkResult> {
+  const startTime = Date.now();
+  
+  const {
+    maxChunks = 50,
+    minChunkLength = 200,
+    maxChunkLength = 800
+  } = options;
+
+  // Validate input
+  if (!cleanedHtml || cleanedHtml.trim().length === 0) {
+    return { chunks: [] };
+  }
+
+  // If content is very short, return as single chunk
+  if (cleanedHtml.length < minChunkLength) {
+    return {
+      chunks: [cleanedHtml],
+      processingTime: Date.now() - startTime
+    };
+  }
+
+  try {
+    console.log(`[Chunker] Processing ${cleanedHtml.length} characters...`);
+
+    // Enhance the chunking prompt with more specific instructions
+    const enhancedPrompt = `${config.promptChunking}
+
+Additional guidelines:
+- Aim for chunks between ${minChunkLength}-${maxChunkLength} words
+- Maximum ${maxChunks} chunks
+- Each chunk should be semantically complete
+- Preserve important context and structure
+- Don't break lists, tables, or code blocks
+- Ensure chunks can stand alone for search purposes`;
+
+    // Create messages for chat completion
+    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      {
+        role: 'system',
+        content: enhancedPrompt
+      },
+      {
+        role: 'user',
+        content: cleanedHtml
+      },
+      {
+        role: 'system',
+        content: 'Split the content into logical chunks and return as JSON with the exact format: {"chunks": ["chunk1", "chunk2", ...]}'
+      }
+    ];
+
+    // Call OpenAI Chat Completions API with JSON mode
+    const response = await openai.chat.completions.create({
+      model: config.openaiChatModel,
+      messages: messages,
+      temperature: 0.1, // Low temperature for consistent chunking
+      max_tokens: 4000,  // Reasonable limit for chunk responses
+      response_format: { type: "json_object" }, // Ensure JSON response
+    });
+
+    const choice = response.choices[0];
+    if (!choice?.message?.content) {
+      throw new Error('No content received from OpenAI');
+    }
+
+    // Parse JSON response
+    let parsedResponse: any;
+    try {
+      parsedResponse = JSON.parse(choice.message.content);
+    } catch (parseError) {
+      console.error('[Chunker] JSON parse error:', parseError);
+      console.error('[Chunker] Raw response:', choice.message.content);
+      throw new Error(`Failed to parse JSON response: ${parseError}`);
+    }
+
+    // Validate response structure
+    if (!parsedResponse.chunks || !Array.isArray(parsedResponse.chunks)) {
+      console.error('[Chunker] Invalid response structure:', parsedResponse);
+      throw new Error('Response does not contain valid chunks array');
+    }
+
+    // Filter and validate chunks
+    const chunks = parsedResponse.chunks
+      .filter((chunk: any) => typeof chunk === 'string' && chunk.trim().length > 0)
+      .map((chunk: string) => chunk.trim())
+      .slice(0, maxChunks); // Limit to maximum chunks
+
+    // Log statistics
+    const totalTokens = response.usage?.total_tokens || 0;
+    const processingTime = Date.now() - startTime;
+    
+    console.log(`[Chunker] Generated ${chunks.length} chunks in ${processingTime}ms`);
+    console.log(`[Chunker] Total tokens used: ${totalTokens}`);
+    
+    // Calculate rough cost (GPT-4o-mini pricing as example)
+    const estimatedCost = (totalTokens / 1000000) * 0.15; // $0.15 per 1M tokens (approximate)
+    
+    const result: ChunkResult = {
+      chunks,
+      totalTokens,
+      totalCost: estimatedCost,
+      processingTime
+    };
+
+    // Validate chunk quality
+    validateChunks(chunks, { minChunkLength, maxChunkLength });
+
+    return result;
+
+  } catch (error) {
+    console.error('[Chunker] Error splitting content:', error);
+    
+    // Fallback: Simple text-based chunking if LLM fails
+    console.log('[Chunker] Falling back to simple text splitting...');
+    const fallbackChunks = fallbackTextSplitting(cleanedHtml, maxChunkLength);
+    
+    return {
+      chunks: fallbackChunks,
+      processingTime: Date.now() - startTime
+    };
+  }
+}
+
+/**
+ * Validate chunks for quality and adherence to requirements
+ */
+function validateChunks(chunks: string[], options: { minChunkLength: number; maxChunkLength: number }): void {
+  const { minChunkLength, maxChunkLength } = options;
+  
+  chunks.forEach((chunk, index) => {
+    const wordCount = chunk.split(/\s+/).length;
+    
+    if (wordCount < minChunkLength / 5) { // Rough words-to-chars conversion
+      console.warn(`[Chunker] Chunk ${index} may be too short: ${wordCount} words`);
+    }
+    
+    if (wordCount > maxChunkLength / 3) { // Rough words-to-chars conversion
+      console.warn(`[Chunker] Chunk ${index} may be too long: ${wordCount} words`);
+    }
+    
+    if (chunk.length < 50) {
+      console.warn(`[Chunker] Chunk ${index} is very short: ${chunk.length} characters`);
+    }
+  });
+}
+
+/**
+ * Fallback text splitting when LLM fails
+ */
+function fallbackTextSplitting(text: string, maxChunkLength: number): string[] {
+  const chunks: string[] = [];
+  const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
+  
+  let currentChunk = '';
+  
+  for (const paragraph of paragraphs) {
+    // If adding this paragraph would exceed max length
+    if (currentChunk.length + paragraph.length > maxChunkLength) {
+      // Save current chunk if it has content
+      if (currentChunk.trim().length > 0) {
+        chunks.push(currentChunk.trim());
+        currentChunk = '';
+      }
+      
+      // If single paragraph is too long, split it by sentences
+      if (paragraph.length > maxChunkLength) {
+        const sentences = paragraph.split(/[.!?]+/).filter(s => s.trim().length > 0);
+        let sentenceChunk = '';
+        
+        for (const sentence of sentences) {
+          if (sentenceChunk.length + sentence.length > maxChunkLength) {
+            if (sentenceChunk.trim().length > 0) {
+              chunks.push(sentenceChunk.trim());
+              sentenceChunk = '';
+            }
+          }
+          sentenceChunk += sentence + '. ';
+        }
+        
+        if (sentenceChunk.trim().length > 0) {
+          currentChunk = sentenceChunk.trim();
+        }
+      } else {
+        currentChunk = paragraph;
+      }
+    } else {
+      if (currentChunk.length > 0) {
+        currentChunk += '\n\n' + paragraph;
+      } else {
+        currentChunk = paragraph;
+      }
+    }
+  }
+  
+  // Add final chunk
+  if (currentChunk.trim().length > 0) {
+    chunks.push(currentChunk.trim());
+  }
+  
+  console.log(`[Chunker] Fallback splitting created ${chunks.length} chunks`);
+  return chunks;
+}
+
+/**
+ * Add source metadata to chunks
+ */
+export function addSourceMetadata(
+  chunks: string[], 
+  pageTitle: string, 
+  pageId: string, 
+  baseUrl: string
+): string[] {
+  const sourcePrefix = `<source title="${pageTitle}" url="${baseUrl}/pages/viewpage.action?pageId=${pageId}" />`;
+  
+  return chunks.map(chunk => `${sourcePrefix}\n\n${chunk}`);
+}
+
+/**
+ * Test function for development and debugging
+ */
+export async function testChunking(): Promise<void> {
+  const testHtml = `
+    <h1>Introduction to Machine Learning</h1>
+    <p>Machine learning is a subset of artificial intelligence that focuses on developing algorithms and models that can learn and make predictions or decisions from data without being explicitly programmed.</p>
+    
+    <h2>Types of Machine Learning</h2>
+    <p>There are several types of machine learning approaches:</p>
+    
+    <h3>Supervised Learning</h3>
+    <p>Supervised learning involves training a model using labeled data, where both input features and expected outputs are provided. Common algorithms include linear regression, decision trees, and neural networks.</p>
+    
+    <h3>Unsupervised Learning</h3>
+    <p>Unsupervised learning works with unlabeled data to discover hidden patterns or structures. Clustering and dimensionality reduction are common unsupervised learning tasks.</p>
+    
+    <h3>Reinforcement Learning</h3>
+    <p>Reinforcement learning involves an agent learning to make decisions through interaction with an environment, receiving rewards or penalties for different actions.</p>
+    
+    <h2>Applications</h2>
+    <p>Machine learning has numerous applications across various industries:</p>
+    <ul>
+      <li>Healthcare: Medical diagnosis and drug discovery</li>
+      <li>Finance: Fraud detection and algorithmic trading</li>
+      <li>Technology: Recommendation systems and natural language processing</li>
+      <li>Transportation: Autonomous vehicles and route optimization</li>
+    </ul>
+    
+    <h2>Getting Started</h2>
+    <p>To begin with machine learning, you should have a solid foundation in mathematics, statistics, and programming. Popular programming languages for ML include Python and R, with libraries like scikit-learn, TensorFlow, and PyTorch.</p>
+  `;
+
+  console.log('Testing chunking with sample content...\n');
+  
+  try {
+    const result = await splitIntoChunks(testHtml);
+    
+    console.log(`Generated ${result.chunks.length} chunks:`);
+    console.log(`Processing time: ${result.processingTime}ms`);
+    console.log(`Total tokens: ${result.totalTokens}`);
+    console.log(`Estimated cost: $${result.totalCost?.toFixed(4)}`);
+    console.log('=' .repeat(50));
+    
+    result.chunks.forEach((chunk, index) => {
+      console.log(`\nChunk ${index + 1} (${chunk.length} chars):`);
+      console.log(chunk);
+      console.log('-'.repeat(30));
+    });
+    
+    // Test with source metadata
+    const chunksWithSource = addSourceMetadata(
+      result.chunks, 
+      'Machine Learning Guide', 
+      '12345', 
+      'https://wiki.example.com'
+    );
+    
+    console.log('\nFirst chunk with source metadata:');
+    console.log(chunksWithSource[0]);
+    
+  } catch (error) {
+    console.error('Test failed:', error);
+  }
+}
+
+// Run test if this file is executed directly
+if (require.main === module) {
+  testChunking().catch(console.error);
+}
