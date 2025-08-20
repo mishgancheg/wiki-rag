@@ -8,8 +8,7 @@
 - Предоставляет HTTP API для семантического поиска по индексированным чанкам.
 
 Ограничения и требования
-- Приложение автономное, не использовать никакие модули из существующей папки api текущего монорепо.
-- Node.js >= 18.19, Yarn/NPM по желанию.
+- Node.js >= 22.17, Yarn/NPM по желанию.
 - База данных: PostgreSQL с расширением pgvector.
 - Хранение секретов через .env (без коммита реальных ключей).
 - Код на TypeScript (предпочтительно), допускается JS при необходимости, но придерживаться строгой структуры.
@@ -17,9 +16,9 @@
 Технологический стек (рекомендации)
 - Backend: Node.js + Express.
 - Frontend: Простой статический HTML + JS (vanilla) или небольшой фреймворк (без сборки) — достаточно vanilla ES Modules.
-- HTTP клиент: axios или fetch.
-- HTML очистка: cheerio + минималистичная логика (аналог cleanHTML).
-- OpenAI: официальный SDK или вызовы REST. Два типа запросов: Chat Completions (LLM) и Embeddings.
+- HTTP клиент: axios или fetch. 
+- HTML очистка: cheerio + минималистичная логика 
+- OpenAI: официальный SDK. Два типа запросов: Chat Completions (LLM) и Embeddings.
 - БД: pg (node-postgres), pgvector.
 
 Архитектура и директории
@@ -28,7 +27,6 @@
     - confluence.ts (клиент работы с Confluence: spaces/pages/page content)
     - cleanHtml.ts (очистка HTML — логика максимально повторяет правила ниже)
     - chunker/
-        - batching.ts (prepareBatches, разбиение входного текста на батчи при необходимости)
         - splitIntoChunks.ts (вызов LLM для получения чанков по JSON-схеме)
         - questions.ts (вызов LLM для генерации вопросов для каждого чанка)
     - embeddings.ts (вызов OpenAI Embeddings для текста чанка и для каждого вопроса)
@@ -37,6 +35,7 @@
     - config.ts (чтение .env, дефолты)
 - public/
     - index.html (UI: выбор токена, пространства, дерева страниц, отметка чекбоксов, кнопки индексирования)
+      index.html должен раздаваться черезз серверный эндпоинт /
     - app.js (логика UI: загрузка пространств, дерева, предпросмотр страницы, массовые действия, индикаторы статуса)
 - .env.example
 
@@ -49,7 +48,7 @@
 - PGHOST=localhost
 - PGPORT=5432
 - PGUSER=postgres
-- PGPASSWORD=postgres
+- PGPASSWORD=*
 - PGDATABASE=wiki_rag
 
 Функциональные сценарии
@@ -60,22 +59,25 @@
 - Лениво подгружать детей: GET /api/wiki/children?parentId=123 → [{ id, title, hasChildren }].
 - При выборе страницы показывать предпросмотр: GET /api/wiki/page?id=123 → { title, html } (html с уже подставленными абсолютными ссылками и встроенными картинками base64, если возможно).
 - У каждой страницы чекбокс; есть «выделить все/снять все»; «Индексировать выбранные», «Индексировать всех потомков выбранной» и «Снять индексацию».
-- Получение списка уже проиндексированных страниц: POST /api/indexed-ids → body: { ids: string[] } → result: string[] (существующие srcId).
+- Получение списка уже проиндексированных страниц: POST /api/indexed-ids → body: { ids: string[] } → result: string[] (существующие wikiId).
 
 2) Индексация (серверная логика)
    Для списка выбранных pageId:
 - По каждому pageId:
   a) Получить HTML страницы из Confluence (REST endpoints ниже). В ответе нормализовать относительные href/src, подготовить HTML.
   b) Очистить HTML согласно правилам (см. Раздел Очистка HTML).
-  c) Разбить очищенный HTML на чанки через LLM (см. Раздел Чанкование/LLM). На каждый чанк добавить префикс-метадату вида:
+  c) Разбить очищенный HTML на чанки через LLM (см. Раздел Чанкование/LLM). В начало каждого чанка добавить префикс-метадату вида:
      <source title="{title}" url="{BASE}/pages/viewpage.action?pageId={id}" />\n\n{chunk}
-  d) Для каждого чанка получить 3–7 вопросов (LLM questions prompt).
-  e) Сохранить в БД:
-     - Строки таблицы wiki.dataset (см. Схема БД) с текстом чанка и списком вопросов (вопросы можно хранить как JSONB или как текст c маркировкой). На базе этих данных далее создаются отдельные записи в wiki.chunks.
-     - Создать (или пересоздать) записи в wiki.chunks (каждый чанк отдельная строка), затем получить эмбеддинги для:
-       • текста чанка (обязательно)
-       • каждого вопроса (по желанию — можно хранить отдельно в wiki.questions как расширение, но достаточно хранить только эмбеддинг чанка для базового RAG). Если делаете эмбеддинги и для вопросов — храните их в wiki.questions с ссылкой на chunk_id.
-- Параллельный запуск: отправлять обработку страниц параллельно, но со сдвигом старта ~10 мс между задачами, чтобы не бить лимиты Confluence/OpenAI.
+  d) Удалить записи с текущим wiki_id из таблицы wiki_rag.chunk
+  e) Удалить записи с текущим wiki_id из таблицы wiki_rag.question
+  f) Для каждого чанка 
+      1) получить 3–20 вопросов (LLM questions prompt).
+      2) получить эмбеддинги для чанка
+      3) получить эмбеддинги для вопросов
+      4) Сохранить в БД:
+         - Вставить в таблицу wiki_rag.chunk новую запись: wiki_id, HTML (chunk_text), очищенный HTML (embedding_text) и эмбеддинг (embedding) (см. Схема БД)
+         - Создать записи в wiki_rag.question (каждый вопрос - отдельная строка)
+- Параллельный запуск: отправлять обработку страниц параллельно, но со сдвигом старта ~30 мс между задачами, чтобы не бить лимиты Confluence/OpenAI.
 - По завершении страницы — обновить маркеры состояния и выслать событие прогресса на фронт (через SSE или периодический поллинг).
 
 3) API RAG
@@ -84,13 +86,16 @@
   {
   "query": "string",
   "threshold": 0.65,
-  "chunksLimit": 10
+  "chunksLimit": 10 
   }
   Действия:
     - Создать эмбеддинг для query (тем же embedding model).
-    - Выполнить поиск по таблице wiki.chunks с помощью pgvector cosine similarity: cosine_distance(embedding, query_embedding) или 1 - cosine_similarity.
-    - Оставить только записи с similarity >= threshold.
-    - Вернуть top-N (chunksLimit) записей: [{ chunk_id, src_id, title, url, text, score }].
+    - Выполнить поиск по таблице wiki_rag.question с помощью pgvector cosine similarity (cs) (оператор <=>).
+    - Оставить только записи с similarity <= threshold.
+    - Выполнить поиск по таблице wiki_rag.chunk с помощью pgvector cosine similarity (cs) (оператор <=>).
+    - Оставить только записи с similarity <= threshold.
+    - Выбрать уникальные chunk_id
+    - Вернуть top-N (chunksLimit) записей: [{ chunk_id, wiki_id, text, cs }].
 
 Интеграция с Confluence
 HTTP запросы с заголовком Authorization: Bearer <token>:
@@ -99,7 +104,6 @@ HTTP запросы с заголовком Authorization: Bearer <token>:
 - Дети: GET {BASE}/rest/api/content/{parentId}/child/page?start=0&limit=1000
 - Страница: GET {BASE}/rest/api/content/{id}?expand=body.view → { title, body.view.value: HTML }
     - Заменить (src|href)="/" на абсолютные: (src|href)="{BASE}/"
-    - Извлечь <img src="..."> ссылки; попытаться скачать и заменить на data:<mime>;base64,... . Если не удалось — оставить исходные URL.
 
 Очистка HTML (cleanHtml.ts)
 Ориентируйтесь на следующие правила (аналог коду в репо):
@@ -135,45 +139,56 @@ HTTP запросы с заголовком Authorization: Bearer <token>:
 - Сохранять вектор как vector тип (pgvector) длиной согласно модели.
 
 Схема БД (PostgreSQL + pgvector)
-Используйте схему wiki (или public, но лучше выделить):
-- Таблица wiki.pages
-    - id (serial PK)
-    - src_id TEXT (Confluence pageId), UNIQUE
-    - space_key TEXT
-    - title TEXT
-    - url TEXT
-    - created_at TIMESTAMP, updated_at TIMESTAMP
+```postgresql
+CREATE TABLE wiki_rag.chunk
+(
+    chunk_id       SERIAL PRIMARY KEY,
+    wiki_id        TEXT                                               NOT NULL,
+    text           TEXT                                               NOT NULL,
+    embedding_text TEXT                                               NOT NULL,
+    embedding      public.vector(1024)                                NOT NULL,
+    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
 
-- Таблица wiki.dataset (черновик хранения, как источник генерации)
-    - id (serial PK)
-    - src_id TEXT (ссылка на pages.src_id)
-    - title TEXT
-    - content TEXT (очищенный HTML или сырой текст)
-    - tags TEXT[] (опционально)
-    - created_at, updated_at
 
-- Таблица wiki.chunks
-    - id (serial PK)
-    - src_id TEXT (ссылка на pages.src_id)
-    - title TEXT
-    - url TEXT
-    - text TEXT (текст чанка)
-    - embedding VECTOR (dimension соответствует выбранной модели)
-    - tokens INT (опционально)
-    - created_at, updated_at
-      Индекс: ivfflat по embedding (cosine), а также btree по src_id.
+COMMENT ON TABLE wiki_rag.chunk IS 'Stores text chunks and their vector embeddings for RAG retrieval system';
+COMMENT ON COLUMN wiki_rag.chunk.chunk_id IS 'Primary key, auto-incrementing identifier for each text chunk record';
+COMMENT ON COLUMN wiki_rag.chunk.wiki_id IS 'Id страницы в WIKI, с которой получен чанк';
+COMMENT ON COLUMN wiki_rag.chunk.text IS 'Original text chunk content (may contain HTML tags or other formatting)';
+COMMENT ON COLUMN wiki_rag.chunk.embedding_text IS 'Processed text used for embedding generation (e.g., HTML stripped version of chunk_text)';
+COMMENT ON COLUMN wiki_rag.chunk.embedding IS 'Vector embedding representation of the embedding_text with dimension 1024';
+COMMENT ON COLUMN wiki_rag.chunk.updated_at IS 'Timestamp indicating when the record was created or last updated';
 
-- (Опционально) Таблица wiki.questions
-    - id (serial PK)
-    - chunk_id INT (FK → wiki.chunks.id)
-    - question TEXT
-    - embedding VECTOR (если делаем эмбеддинги для вопросов)
+CREATE INDEX idx_texts_embedding_vector ON wiki_rag.chunk USING ivfflat (embedding vector_cosine_ops);
 
-Миграции
-- Создайте миграцию, включающую: CREATE EXTENSION IF NOT EXISTS vector;
-- Создание схемы и таблиц; индексы для быстрого поиска по embedding и фильтрации по src_id.
 
-REST API дизайн (сервер)
+CREATE TABLE wiki_rag.question
+(
+    question_id SERIAL PRIMARY KEY,
+    chunk_id    TEXT                                               NOT NULL,
+    wiki_id     TEXT                                               NOT NULL,
+    text        TEXT                                               NOT NULL,
+    embedding   public.vector(1024)                                NOT NULL,
+    updated_at  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+COMMENT ON TABLE wiki_rag.question IS 'Stores user questions and their vector embeddings for RAG query processing';
+COMMENT ON COLUMN wiki_rag.question.question_id IS 'Primary key, auto-incrementing identifier for each question record';
+COMMENT ON COLUMN wiki_rag.question.chunk_id IS 'chunk_id из таблицы wiki_rag.chunk';
+COMMENT ON COLUMN wiki_rag.question.wiki_id IS 'Id страницы в WIKI, к которой относятся воппросы';
+COMMENT ON COLUMN wiki_rag.question.text IS 'Text content of the user question or query';
+COMMENT ON COLUMN wiki_rag.question.embedding IS 'Vector embedding representation of the question_text with dimension 1024';
+COMMENT ON COLUMN wiki_rag.question.updated_at IS 'Timestamp indicating when the record was created or last updated';
+
+
+
+CREATE INDEX idx_questions_embedding_vector ON wiki_rag.question USING ivfflat (embedding vector_cosine_ops);
+
+```
+
+
+REST API дизайн (сервер, при обращении к вики)
 - GET /api/wiki/spaces → [{ key, name }]
 - GET /api/wiki/pages?spaceKey=KEY → [{ id, title, hasChildren }]
 - GET /api/wiki/children?parentId=123 → [{ id, title, hasChildren }]
@@ -225,7 +240,7 @@ UI (public/index.html + app.js)
     - processPage({ id, spaceKey, title })
       • html = fetchPageHtml → cleanHTML → batches → splitIntoChunks → add <source .../> в начало каждого чанка
       • for each chunk: questions = getQuestionsForChunk
-      • save: upsert page in wiki.pages, insert into wiki.chunks with embedding, optionally wiki.questions
+      • save: upsert page in wiki.pages, insert into wiki_rag.question with embedding, optionally wiki.questions
 - db.ts
     - init: create extension vector, create tables if not exist, create indexes
     - query helpers
