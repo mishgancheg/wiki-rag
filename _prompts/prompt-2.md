@@ -43,7 +43,7 @@
 - PORT=3000
 - CONFLUENCE_BASE_URL=https://wiki.example.com
 - OPENAI_API_KEY=...
-- OPENAI_CHAT_MODEL=gpt-4o-mini (или другой, поддерживающий JSON формат ответа)
+- MODEL_FOR_CHUNKS=gpt-4o-mini (или другой, поддерживающий JSON формат ответа)
 - OPENAI_EMBEDDING_MODEL=text-embedding-3-large
 - PGHOST=localhost
 - PGPORT=5432
@@ -117,7 +117,7 @@ HTTP запросы с заголовком Authorization: Bearer <token>:
 
 Чанкование (LLM)
 - Параметры:
-    - CHAT_MODEL (из .env OPENAI_CHAT_MODEL), PROMPT_CHUNKING (в конфиге).
+    - CHAT_MODEL (из .env MODEL_FOR_CHUNKS, MODEL_FOR_QUESTIONS), PROMPT_CHUNKING (в конфиге).
 - Процесс:
     - Вызов Chat Completions с сообщениями:
       [

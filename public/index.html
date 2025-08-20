@@ -10,53 +10,119 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
             line-height: 1.6;
             color: #333;
             background-color: #f5f5f5;
         }
-        
+
         .container {
-            max-width: 1400px;
-            margin: 0 auto;
+            margin: 0;
             padding: 20px;
         }
-        
+
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 2rem;
-            border-radius: 12px;
-            margin-bottom: 2rem;
-            text-align: center;
+            height: 40px;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
         }
-        
+
+        .header-content {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1rem;
+            height: 100%;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+        }
+
         .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 0.5rem;
+            font-size: 1.4rem;
+            margin: 0;
+            font-weight: 600;
         }
-        
-        .header p {
-            font-size: 1.1rem;
+
+        .header-subtitle {
+            font-size: 0.8rem;
+            opacity: 0.85;
+            font-weight: 400;
+        }
+
+        .header-status {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .status-badge:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-1px);
+        }
+
+        .status-badge .status-number {
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+
+        .status-badge .status-label {
+            font-weight: 400;
             opacity: 0.9;
         }
-        
+
+        .status-badge.processing {
+            background: rgba(52, 152, 219, 0.3);
+            border-color: rgba(52, 152, 219, 0.5);
+        }
+
+        .status-badge.completed {
+            background: rgba(39, 174, 96, 0.3);
+            border-color: rgba(39, 174, 96, 0.5);
+        }
+
+        .status-badge.errors {
+            background: rgba(231, 76, 60, 0.3);
+            border-color: rgba(231, 76, 60, 0.5);
+        }
+
         .main-content {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 750px minmax(0, 1fr);
             gap: 2rem;
             margin-bottom: 2rem;
         }
-        
+
         .panel {
             background: white;
             padding: 2rem;
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        
+
         .panel h2 {
             color: #2c3e50;
             margin-bottom: 1.5rem;
@@ -64,18 +130,18 @@
             border-bottom: 2px solid #3498db;
             padding-bottom: 0.5rem;
         }
-        
+
         .form-group {
             margin-bottom: 1.5rem;
         }
-        
+
         .form-group label {
             display: block;
             margin-bottom: 0.5rem;
             font-weight: 600;
             color: #2c3e50;
         }
-        
+
         .form-control {
             width: 100%;
             padding: 0.75rem;
@@ -84,13 +150,13 @@
             font-size: 1rem;
             transition: border-color 0.3s ease;
         }
-        
+
         .form-control:focus {
             outline: none;
             border-color: #3498db;
             box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
         }
-        
+
         .btn {
             background: linear-gradient(135deg, #3498db, #2980b9);
             color: white;
@@ -104,30 +170,30 @@
             align-items: center;
             gap: 0.5rem;
         }
-        
+
         .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
         }
-        
+
         .btn:disabled {
             opacity: 0.6;
             cursor: not-allowed;
             transform: none;
         }
-        
+
         .btn-secondary {
             background: linear-gradient(135deg, #95a5a6, #7f8c8d);
         }
-        
+
         .btn-danger {
             background: linear-gradient(135deg, #e74c3c, #c0392b);
         }
-        
+
         .btn-success {
             background: linear-gradient(135deg, #27ae60, #229954);
         }
-        
+
         .page-tree {
             max-height: 500px;
             overflow-y: auto;
@@ -136,7 +202,7 @@
             padding: 1rem;
             background-color: #fafafa;
         }
-        
+
         .tree-item {
             margin: 0.5rem 0;
             padding: 0.5rem;
@@ -147,20 +213,20 @@
             gap: 0.5rem;
             transition: background-color 0.2s ease;
         }
-        
+
         .tree-item:hover {
             background-color: #e3f2fd;
         }
-        
+
         .tree-item.selected {
             background-color: #bbdefb;
             font-weight: 600;
         }
-        
+
         .tree-item.indexed {
             border-left: 4px solid #4caf50;
         }
-        
+
         .tree-toggle {
             width: 20px;
             height: 20px;
@@ -173,15 +239,15 @@
             border-radius: 50%;
             transition: background-color 0.2s ease;
         }
-        
+
         .tree-toggle:hover {
             background-color: #ddd;
         }
-        
+
         .tree-checkbox {
             margin-right: 0.5rem;
         }
-        
+
         .page-preview {
             background: white;
             border: 2px solid #e0e0e0;
@@ -191,51 +257,24 @@
             max-height: 400px;
             overflow-y: auto;
         }
-        
+
         .page-preview h3 {
             color: #2c3e50;
             margin-bottom: 1rem;
             border-bottom: 1px solid #eee;
             padding-bottom: 0.5rem;
         }
-        
-        .status-panel {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
-        }
-        
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-        }
-        
-        .status-item {
-            text-align: center;
-            padding: 1rem;
-            border-radius: 8px;
-            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-        }
-        
-        .status-number {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #3498db;
-            display: block;
-        }
-        
+
+
         .search-panel {
             grid-column: 1 / -1;
             margin-top: 2rem;
         }
-        
+
         .search-results {
             margin-top: 1.5rem;
         }
-        
+
         .search-result {
             background: #f8f9fa;
             border-left: 4px solid #3498db;
@@ -243,12 +282,12 @@
             margin-bottom: 1rem;
             border-radius: 0 8px 8px 0;
         }
-        
+
         .search-result h4 {
             color: #2c3e50;
             margin-bottom: 0.5rem;
         }
-        
+
         .search-result .similarity {
             background: #3498db;
             color: white;
@@ -257,7 +296,7 @@
             font-size: 0.8rem;
             float: right;
         }
-        
+
         .loading {
             display: inline-block;
             width: 20px;
@@ -267,11 +306,11 @@
             border-top-color: white;
             animation: spin 1s ease-in-out infinite;
         }
-        
+
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-        
+
         .progress-bar {
             width: 100%;
             height: 8px;
@@ -280,95 +319,174 @@
             overflow: hidden;
             margin: 1rem 0;
         }
-        
+
         .progress-fill {
             height: 100%;
             background: linear-gradient(90deg, #3498db, #2980b9);
             transition: width 0.3s ease;
             width: 0%;
         }
-        
+
         .alert {
             padding: 1rem;
             border-radius: 8px;
             margin-bottom: 1rem;
         }
-        
+
         .alert-success {
             background: #d4edda;
             color: #155724;
             border: 1px solid #c3e6cb;
         }
-        
+
         .alert-error {
             background: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
-        
+
         .alert-warning {
             background: #fff3cd;
             color: #856404;
             border: 1px solid #ffeaa7;
         }
-        
+
         .hidden {
             display: none !important;
         }
-        
+
         .actions {
             display: flex;
-            gap: 1rem;
+            gap: 0.75rem;
             margin-top: 1.5rem;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
+            overflow-x: auto;
         }
-        
+
         @media (max-width: 768px) {
             .main-content {
                 grid-template-columns: 1fr;
             }
-            
+
             .container {
                 padding: 10px;
             }
-            
+
             .header h1 {
                 font-size: 2rem;
             }
-            
+
             .actions {
                 flex-direction: column;
             }
         }
     </style>
+    <!-- Compact UI overrides -->
+    <style>
+        /* Overall spacing */
+        .container { padding: 16px !important; }
+        .main-content { gap: 1rem !important; margin-bottom: 1rem !important; }
+
+        /* Panels and titles */
+        .panel { padding: 1rem !important; }
+        .panel h2 { font-size: 1.25rem !important; margin-bottom: 0.75rem !important; padding-bottom: 0.35rem !important; }
+
+        /* Form controls */
+        .form-group { margin-bottom: 0.75rem !important; }
+        .form-group label { margin-bottom: 0.25rem !important; font-size: 0.95rem !important; }
+        .form-control { padding: 0.5rem !important; font-size: 0.95rem !important; border-width: 1px !important; }
+
+        /* Buttons */
+        .btn { padding: 0.5rem 1rem !important; font-size: 0.95rem !important; gap: 0.4rem !important; }
+        #load-spaces-btn { margin-top: 0.25rem !important; }
+
+        /* Page tree compact rows */
+        .page-tree { padding: 0.75rem !important; max-height: 460px !important; }
+        .tree-item { margin: 0.25rem 0 !important; padding: 0.25rem 0.35rem !important; gap: 0.4rem !important; height: 22px !important; }
+        .tree-toggle { width: 16px !important; height: 16px !important; }
+        .tree-checkbox { margin-right: 0.35rem !important; }
+
+        /* Page preview */
+        .page-preview { padding: 1rem !important; max-height: 360px !important; }
+
+        /* Search panel spacing */
+        .search-panel { margin-top: 1rem !important; }
+
+        /* Mobile responsive adjustments */
+        @media (max-width: 768px) {
+            .container { padding: 10px !important; }
+            .header h1 { font-size: 1.2rem !important; }
+            .header-subtitle { font-size: 0.7rem !important; }
+            .header-status { gap: 0.3rem !important; }
+            .status-badge { padding: 0.2rem 0.4rem !important; font-size: 0.7rem !important; }
+            .status-badge .status-number { font-size: 0.75rem !important; }
+        }
+    </style>
+    <!-- Token Modal styles -->
+    <style>
+        .icon-btn {
+            background: transparent;
+            border: 1px solid #e0e0e0;
+            color: #2c3e50;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .icon-btn:hover { background: #f2f4f8; }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            z-index: 1000;
+        }
+        .modal-dialog {
+            background: #fff;
+            width: 100%;
+            max-width: 380px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .modal-header { padding: 0.75rem 1rem; border-bottom: 1px solid #eee; }
+        .modal-body { padding: 0.75rem 1rem; }
+        .modal-actions { padding: 0.75rem 1rem; border-top: 1px solid #eee; display: flex; gap: 0.5rem; justify-content: flex-end; }
+    </style>
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
+        <!-- Compact Header with Integrated Status -->
         <div class="header">
-            <h1>🔍 Wiki-RAG</h1>
-            <p>Index Confluence pages and perform intelligent semantic search</p>
-        </div>
-
-        <!-- Status Panel -->
-        <div class="status-panel">
-            <h2>📊 Status</h2>
-            <div class="status-grid">
-                <div class="status-item">
-                    <span class="status-number" id="status-queued">0</span>
-                    <div>Queued</div>
+            <div class="header-content">
+                <div class="header-title">
+                    <h1>🔍 Wiki-RAG</h1>
+                    <span class="header-subtitle">Confluence Indexing & Search</span>
                 </div>
-                <div class="status-item">
-                    <span class="status-number" id="status-processing">0</span>
-                    <div>Processing</div>
-                </div>
-                <div class="status-item">
-                    <span class="status-number" id="status-completed">0</span>
-                    <div>Completed</div>
-                </div>
-                <div class="status-item">
-                    <span class="status-number" id="status-errors">0</span>
-                    <div>Errors</div>
+                <div class="header-status">
+                    <div class="status-badge queued">
+                        <span class="status-number" id="status-queued">0</span>
+                        <span class="status-label">Queue</span>
+                    </div>
+                    <div class="status-badge processing">
+                        <span class="status-number" id="status-processing">0</span>
+                        <span class="status-label">Process</span>
+                    </div>
+                    <div class="status-badge completed">
+                        <span class="status-number" id="status-completed">0</span>
+                        <span class="status-label">Done</span>
+                    </div>
+                    <div class="status-badge errors">
+                        <span class="status-number" id="status-errors">0</span>
+                        <span class="status-label">Error</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -377,27 +495,30 @@
         <div class="main-content">
             <!-- Wiki Management Panel -->
             <div class="panel">
-                <h2>📚 Wiki Management</h2>
-                
+                <h2 style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+                    <span>📚 Wiki Management</span>
+                    <button id="token-icon-btn" class="icon-btn" title="Confluence Personal Access Token" aria-label="Confluence Personal Access Token">🔑</button>
+                </h2>
+
                 <!-- Confluence Token -->
-                <div class="form-group">
+                <div class="form-group" style="display: none;">
                     <label for="confluence-token">Confluence Personal Access Token</label>
-                    <input type="password" id="confluence-token" class="form-control" 
-                           placeholder="Enter your Confluence token..." 
+                    <input type="password" id="confluence-token" class="form-control"
+                           placeholder="Enter your Confluence token..."
                            autocomplete="current-password">
-                    <small style="color: #666; font-size: 0.9rem;">Token is stored in browser localStorage and sent only to your server</small>
                 </div>
 
                 <!-- Space Selection -->
                 <div class="form-group">
-                    <label for="space-select">Space</label>
-                    <select id="space-select" class="form-control" disabled>
-                        <option value="">Select a space...</option>
-                    </select>
-                    <button id="load-spaces-btn" class="btn" style="margin-top: 0.5rem;" disabled>
-                        <span>Load Spaces</span>
-                        <div class="loading hidden"></div>
-                    </button>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button id="load-spaces-btn" class="btn">
+                            <span>Load Spaces</span>
+                            <div class="loading hidden"></div>
+                        </button>
+                        <select id="space-select" class="form-control" disabled style="flex: 1;">
+                            <option value="">Select a space...</option>
+                        </select>
+                    </div>
                 </div>
 
                 <!-- Page Tree -->
@@ -442,36 +563,48 @@
         <!-- Search Panel -->
         <div class="panel search-panel">
             <h2>🔍 Semantic Search</h2>
-            
-            <div class="form-group">
-                <label for="search-query">Search Query</label>
-                <input type="text" id="search-query" class="form-control" 
-                       placeholder="Enter your search query..." autocomplete="off">
-            </div>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr 200px; gap: 1rem; margin-bottom: 1rem;">
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="search-threshold">Similarity Threshold</label>
-                    <input type="number" id="search-threshold" class="form-control" 
-                           value="0.65" min="0" max="1" step="0.05">
-                </div>
-                
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="search-limit">Max Results</label>
-                    <input type="number" id="search-limit" class="form-control" 
-                           value="10" min="1" max="50">
-                </div>
-                
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label>&nbsp;</label>
-                    <button id="search-btn" class="btn">
-                        <span>Search</span>
-                        <div class="loading hidden"></div>
-                    </button>
+
+            <div class="form-group" style="margin-bottom: 0.75rem;">
+                <div style="display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: nowrap;">
+                    <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
+                        <label for="search-query">Search Query</label>
+                        <input type="text" id="search-query" class="form-control" placeholder="Enter your search query..." autocomplete="off">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0; width: 220px;">
+                        <label for="search-threshold">Similarity Threshold</label>
+                        <input type="number" id="search-threshold" class="form-control" value="0.65" min="0" max="1" step="0.05">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0; width: 110px;">
+                        <label for="search-limit">Max Results</label>
+                        <input type="number" id="search-limit" class="form-control" value="10" min="1" max="50">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>&nbsp;</label>
+                        <button id="search-btn" class="btn">
+                            <span>Search</span>
+                            <div class="loading hidden"></div>
+                        </button>
+                    </div>
                 </div>
             </div>
-            
+
             <div id="search-results" class="search-results"></div>
+        </div>
+
+        <!-- Token Modal -->
+        <div id="token-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="token-modal-title">
+            <div class="modal-dialog">
+                <div class="modal-header">
+                    <h3 id="token-modal-title" style="margin: 0; font-size: 1.1rem;">Confluence Personal Access Token</h3>
+                </div>
+                <div class="modal-body">
+                    <input type="password" id="token-modal-input" class="form-control" placeholder="Enter your Confluence token..." autocomplete="current-password">
+                </div>
+                <div class="modal-actions">
+                    <button id="token-modal-cancel" class="btn btn-secondary" type="button">Cancel</button>
+                    <button id="token-modal-save" class="btn" type="button">Save</button>
+                </div>
+            </div>
         </div>
 
         <!-- Alerts -->

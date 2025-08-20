@@ -282,19 +282,14 @@ app.post('/api/rag/search', async (req: Request, res: Response) => {
       chunksLimit,
     );
 
-    // Get unique chunk IDs
-    const uniqueChunkIds = [...new Set(searchResults.map(r => r.chunk_id))];
-
-    // Get full chunk data for the results
-    const chunks = await getChunksByIds(uniqueChunkIds.slice(0, chunksLimit));
-
-    // Format results
-    const results = searchResults.slice(0, chunksLimit).map(result => ({
+    // searchResults already contains unique chunk_ids and is limited to chunksLimit
+    // Format results to match expected API response
+    const results = searchResults.map(result => ({
       chunk_id: result.chunk_id,
       wiki_id: result.wiki_id,
       text: result.text,
-      similarity: result.similarity,
-      source: result.source,
+      similarity: result.cs, // cs is the cosine similarity from the new implementation
+      source: 'chunk', // Since we return unique chunks, source is always 'chunk'
     }));
 
     res.json({
@@ -340,7 +335,8 @@ Health: http://localhost:${config.port}/api/health
 
 Environment:
 - Confluence: ${config.confluenceBaseUrl}
-- OpenAI Model: ${config.openaiChatModel}
+- Model for Chunks: ${config.modelForChunks}
+- Model for Questions: ${config.modelForQuestions}
 - Database: ${config.pgHost}:${config.pgPort}/${config.pgDatabase}
       `);
     });

@@ -3,7 +3,7 @@ import { fetchPageHtml, ConfluencePageContent } from './confluence.js';
 import { cleanHtml } from './cleanHtml.js';
 import { splitIntoChunks, addSourceMetadata } from './chunker/splitIntoChunks.js';
 import { generateQuestionsForChunk } from './chunker/questions.js';
-import { getEmbeddingForText } from './embeddings.js';
+import { getEmbeddingsForTexts } from './embeddings.js';
 import { insertChunk, insertQuestion, deleteByWikiId } from './db.js';
 
 // Interface for pipeline result
@@ -36,18 +36,15 @@ export interface PipelineProgress {
  * @param progressCallback Optional progress callback function
  * @returns Pipeline processing result
  */
-export async function processPage(
+export async function processPage (
   pageId: string,
   token: string,
   options: {
     keepImages?: boolean;
-    maxChunks?: number;
-    minChunkLength?: number;
-    maxChunkLength?: number;
     minQuestions?: number;
     maxQuestions?: number;
   } = {},
-  progressCallback?: (progress: PipelineProgress) => void
+  progressCallback?: (progress: PipelineProgress) => void,
 ): Promise<PipelineResult> {
   const startTime = Date.now();
   let totalTokens = 0;
@@ -59,7 +56,7 @@ export async function processPage(
         pageId,
         stage,
         progress: Math.max(0, Math.min(100, progress)),
-        message
+        message,
       });
     }
   };
@@ -71,25 +68,21 @@ export async function processPage(
     // Step 1: Fetch page content from Confluence
     const pageContent: ConfluencePageContent = await fetchPageHtml(token, pageId);
     console.log(`[Pipeline] Fetched page: "${pageContent.title}" (${pageContent.html.length} chars)`);
-    
+
     reportProgress('cleaning', 20, 'Cleaning HTML content...');
 
     // Step 2: Clean HTML
     const cleanedHtml = await cleanHtml(pageContent.html, {
       keepImages: options.keepImages || false,
       maxNestingLevel: 10,
-      linkTarget: '_blank'
+      linkTarget: '_blank',
     });
     console.log(`[Pipeline] Cleaned HTML: ${cleanedHtml.length} chars (${Math.round((1 - cleanedHtml.length / pageContent.html.length) * 100)}% reduction)`);
 
     reportProgress('chunking', 30, 'Splitting content into chunks...');
 
     // Step 3: Split into chunks
-    const chunkResult = await splitIntoChunks(cleanedHtml, {
-      maxChunks: options.maxChunks || 50,
-      minChunkLength: options.minChunkLength || 200,
-      maxChunkLength: options.maxChunkLength || 800
-    });
+    const chunkResult = await splitIntoChunks(cleanedHtml);
 
     if (chunkResult.chunks.length === 0) {
       console.log(`[Pipeline] No chunks generated for page ${pageId}`);
@@ -101,7 +94,7 @@ export async function processPage(
         questionsGenerated: 0,
         totalTokens: chunkResult.totalTokens || 0,
         totalCost: chunkResult.totalCost || 0,
-        processingTime: Date.now() - startTime
+        processingTime: Date.now() - startTime,
       };
     }
 
@@ -115,7 +108,7 @@ export async function processPage(
       chunkResult.chunks,
       pageContent.title,
       pageId,
-      pageContent.url.replace('/pages/viewpage.action?pageId=' + pageId, '')
+      pageContent.url.replace('/pages/viewpage.action?pageId=' + pageId, ''),
     );
 
     reportProgress('questions', 50, 'Generating questions for chunks...');
@@ -135,12 +128,12 @@ export async function processPage(
       limit(async () => {
         try {
           console.log(`[Pipeline] Processing chunk ${index + 1}/${chunkResult.chunks.length} for questions...`);
-          
+
           // Generate questions for this chunk
           const questionsResult = await generateQuestionsForChunk(chunk, {
             minQuestions: options.minQuestions || 3,
             maxQuestions: options.maxQuestions || 20,
-            context: `Page: ${pageContent.title}`
+            context: `Page: ${pageContent.title}`,
           });
 
           totalTokens += questionsResult.totalTokens || 0;
@@ -152,7 +145,7 @@ export async function processPage(
             embeddingText: chunk, // Use original chunk without metadata for embedding
             questions: questionsResult.questions,
             chunkTokens: questionsResult.totalTokens || 0,
-            chunkCost: questionsResult.totalCost || 0
+            chunkCost: questionsResult.totalCost || 0,
           };
 
           reportProgress('questions', 50 + (index / chunkResult.chunks.length) * 30);
@@ -164,10 +157,10 @@ export async function processPage(
             embeddingText: chunk,
             questions: [],
             chunkTokens: 0,
-            chunkCost: 0
+            chunkCost: 0,
           };
         }
-      })
+      }),
     );
 
     await Promise.all(questionPromises);
@@ -178,65 +171,76 @@ export async function processPage(
     console.log(`[Pipeline] Cleaning up existing data for page ${pageId}`);
     await deleteByWikiId(pageId);
 
-    // Step 7: Generate embeddings and save to database (with rate limiting)
+    // Step 7: Generate embeddings in batches (all chunks, then all questions)
     let savedChunks = 0;
     let savedQuestions = 0;
 
-    const embeddingPromises = chunkData.map((data, index) =>
-      limit(async () => {
+    // Prepare inputs
+    const chunkEmbeddingInputs = chunkData.map(d => d.embeddingText);
+    const questionEmbeddingInputs: string[] = [];
+    const questionCountsPerChunk: number[] = [];
+    for (const d of chunkData) {
+      questionCountsPerChunk.push(d.questions.length);
+      for (const q of d.questions) questionEmbeddingInputs.push(q);
+    }
+
+    // Compute embeddings for all chunks
+    const chunkBatch = await getEmbeddingsForTexts(chunkEmbeddingInputs);
+    totalTokens += chunkBatch.totalTokens || 0;
+    totalCost += chunkBatch.totalCost || 0;
+
+    // Save chunks and collect chunk IDs in order
+    const chunkIds: number[] = [];
+    for (let ci = 0; ci < chunkData.length; ci++) {
+      try {
+        const chunkId = await insertChunk(
+          pageId,
+          chunkData[ci].chunkText,
+          chunkData[ci].embeddingText,
+          chunkBatch.embeddings[ci] || [],
+        );
+        chunkIds.push(chunkId);
+        savedChunks++;
+      } catch (err) {
+        console.error(`[Pipeline] Failed to save chunk ${ci}:`, err);
+        // maintain alignment
+        chunkIds.push(-1);
+      }
+    }
+
+    // Compute embeddings for all questions (flat list)
+    const questionsBatch = await getEmbeddingsForTexts(questionEmbeddingInputs);
+    totalTokens += questionsBatch.totalTokens || 0;
+    totalCost += questionsBatch.totalCost || 0;
+
+    // Save questions mapped back to chunks
+    let qOffset = 0;
+    for (let ci = 0; ci < chunkData.length; ci++) {
+      const count = questionCountsPerChunk[ci];
+      const cid = chunkIds[ci];
+      if (cid === -1) {
+        qOffset += count;
+        continue;
+      }
+      for (let k = 0; k < count; k++) {
+        const qText = chunkData[ci].questions[k];
+        const qEmbedding = questionsBatch.embeddings[qOffset + k] || [];
         try {
-          console.log(`[Pipeline] Processing embeddings for chunk ${index + 1}/${chunkData.length}...`);
-          
-          // Generate embedding for chunk
-          const chunkEmbeddingResult = await getEmbeddingForText(data.embeddingText);
-          totalTokens += chunkEmbeddingResult.totalTokens || 0;
-          totalCost += chunkEmbeddingResult.totalCost || 0;
-
-          // Insert chunk into database
-          const chunkId = await insertChunk(
-            pageId,
-            data.chunkText,
-            data.embeddingText,
-            chunkEmbeddingResult.embedding
-          );
-          savedChunks++;
-
-          console.log(`[Pipeline] Saved chunk ${chunkId} with ${data.questions.length} questions`);
-
-          // Generate embeddings for questions and save them
-          for (const question of data.questions) {
-            try {
-              const questionEmbeddingResult = await getEmbeddingForText(question);
-              totalTokens += questionEmbeddingResult.totalTokens || 0;
-              totalCost += questionEmbeddingResult.totalCost || 0;
-
-              await insertQuestion(
-                chunkId,
-                pageId,
-                question,
-                questionEmbeddingResult.embedding
-              );
-              savedQuestions++;
-
-              // Small delay between question embeddings
-              await new Promise(resolve => setTimeout(resolve, 50));
-            } catch (questionError) {
-              console.error(`[Pipeline] Failed to process question "${question}":`, questionError);
-            }
-          }
-
-          reportProgress('saving', 80 + (index / chunkData.length) * 15);
-        } catch (error) {
-          console.error(`[Pipeline] Failed to process chunk ${index} embeddings:`, error);
-          throw error;
+          await insertQuestion(cid, pageId, qText, qEmbedding);
+          savedQuestions++;
+        } catch (err) {
+          console.error(`[Pipeline] Failed to save question for chunk ${ci}:`, err);
         }
-      })
-    );
+        // small delay to avoid hammering DB
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
+      qOffset += count;
+    }
 
-    await Promise.all(embeddingPromises);
+    reportProgress('saving', 95);
 
     const processingTime = Date.now() - startTime;
-    
+
     console.log(`[Pipeline] Completed processing page ${pageId}:`);
     console.log(`  - Title: ${pageContent.title}`);
     console.log(`  - Chunks saved: ${savedChunks}`);
@@ -255,15 +259,15 @@ export async function processPage(
       questionsGenerated: savedQuestions,
       totalTokens,
       totalCost,
-      processingTime
+      processingTime,
     };
 
   } catch (error) {
     const processingTime = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+
     console.error(`[Pipeline] Failed to process page ${pageId}:`, error);
-    
+
     reportProgress('error', 0, errorMessage);
 
     return {
@@ -275,7 +279,7 @@ export async function processPage(
       totalTokens,
       totalCost,
       processingTime,
-      error: errorMessage
+      error: errorMessage,
     };
   }
 }
@@ -288,55 +292,74 @@ export async function processPage(
  * @param progressCallback Optional progress callback function
  * @returns Array of pipeline results
  */
-export async function processPages(
+export async function processPages (
   pages: Array<{ id: string; spaceKey: string; title: string }>,
   token: string,
   options: {
     concurrency?: number;
     startDelay?: number;
     keepImages?: boolean;
-    maxChunks?: number;
-    minChunkLength?: number;
-    maxChunkLength?: number;
     minQuestions?: number;
     maxQuestions?: number;
+    batchSize?: number;
   } = {},
-  progressCallback?: (pageId: string, progress: PipelineProgress) => void
+  progressCallback?: (pageId: string, progress: PipelineProgress) => void,
 ): Promise<PipelineResult[]> {
   const {
     concurrency = 3,
     startDelay = 100, // 100ms delay between starting tasks
+    batchSize = 50, // Max 50 pages per batch
   } = options;
 
-  console.log(`[Pipeline] Starting batch processing of ${pages.length} pages with concurrency ${concurrency}`);
-  
-  const limit = pLimit(concurrency);
-  const results: PipelineResult[] = [];
+  console.log(`[Pipeline] Starting batch processing of ${pages.length} pages with concurrency ${concurrency} and batch size ${batchSize}`);
 
-  const processingPromises = pages.map((page, index) =>
-    limit(async () => {
-      // Stagger the start of each task
-      await new Promise(resolve => setTimeout(resolve, index * startDelay));
-      
-      console.log(`[Pipeline] Starting page ${index + 1}/${pages.length}: ${page.title}`);
-      
-      const result = await processPage(
-        page.id,
-        token,
-        options,
-        progressCallback ? (progress) => progressCallback(page.id, progress) : undefined
-      );
-      
-      results.push(result);
-      
-      console.log(`[Pipeline] Completed page ${index + 1}/${pages.length}: ${result.success ? 'SUCCESS' : 'FAILED'}`);
-      
-      return result;
-    })
-  );
+  // Split pages into batches of maximum 50 pages
+  const batches: Array<Array<{ id: string; spaceKey: string; title: string }>> = [];
+  for (let i = 0; i < pages.length; i += batchSize) {
+    batches.push(pages.slice(i, i + batchSize));
+  }
 
-  const allResults = await Promise.all(processingPromises);
-  
+  console.log(`[Pipeline] Processing ${batches.length} batches of pages`);
+
+  const allResults: PipelineResult[] = [];
+
+  // Process batches sequentially, but pages within each batch in parallel
+  for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+    const batch = batches[batchIndex];
+    console.log(`[Pipeline] Processing batch ${batchIndex + 1}/${batches.length} with ${batch.length} pages`);
+
+    const limit = pLimit(concurrency);
+    const results: PipelineResult[] = [];
+
+    const processingPromises = batch.map((page, index) =>
+      limit(async () => {
+        // Stagger the start of each task
+        await new Promise(resolve => setTimeout(resolve, index * startDelay));
+
+        const globalIndex = batchIndex * batchSize + index + 1;
+        console.log(`[Pipeline] Starting page ${globalIndex}/${pages.length}: ${page.title}`);
+
+        const result = await processPage(
+          page.id,
+          token,
+          options,
+          progressCallback ? (progress) => progressCallback(page.id, progress) : undefined,
+        );
+
+        results.push(result);
+
+        console.log(`[Pipeline] Completed page ${globalIndex}/${pages.length}: ${result.success ? 'SUCCESS' : 'FAILED'}`);
+
+        return result;
+      }),
+    );
+
+    const batchResults = await Promise.all(processingPromises);
+    allResults.push(...batchResults);
+
+    console.log(`[Pipeline] Completed batch ${batchIndex + 1}/${batches.length}`);
+  }
+
   // Calculate summary statistics
   const successful = allResults.filter(r => r.success).length;
   const failed = allResults.length - successful;
@@ -359,7 +382,7 @@ export async function processPages(
 /**
  * Test function for development
  */
-export async function testPipeline(): Promise<void> {
+export async function testPipeline (): Promise<void> {
   // This would require actual Confluence credentials and page IDs
   console.log('Pipeline test would require real Confluence credentials and page IDs');
   console.log('Use the processPage function with actual data for testing');

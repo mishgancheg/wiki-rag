@@ -87,7 +87,8 @@ CONFLUENCE_BASE_URL=https://your-company.atlassian.net/wiki
 
 # OpenAI Configuration
 OPENAI_API_KEY=sk-your-openai-api-key
-OPENAI_CHAT_MODEL=gpt-4o-mini
+MODEL_FOR_CHUNKS=gpt-4.1
+MODEL_FOR_QUESTIONS=gpt-4.1
 OPENAI_EMBEDDING_MODEL=text-embedding-3-large
 
 # PostgreSQL Configuration
@@ -217,6 +218,7 @@ psql -d wiki_rag -c "CREATE EXTENSION IF NOT EXISTS vector;"
 - Verify API key is valid and has sufficient credits
 - Check rate limits and model availability
 - Monitor token usage in application logs
+- Behind corporate proxy / SSL interception: If you see errors like `UNABLE_TO_VERIFY_LEAF_SIGNATURE` or `unable to verify the first certificate`, either configure your corporate root certificate via `NODE_EXTRA_CA_CERTS=path/to/corporate-ca.pem` or, as a last resort for trusted environments, set `IGNORE_SSL_ERRORS=true` in `.env` (this disables TLS certificate verification for this process). You may also need to set `HTTPS_PROXY`/`HTTP_PROXY` environment variables if your network requires a proxy.
 
 **Confluence Connection Issues**
 - Ensure personal access token has proper permissions

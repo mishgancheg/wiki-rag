@@ -1,4 +1,4 @@
-DROP TABLE IF EXISTS wiki_rag.chunk CASCADE;
+-- DROP TABLE IF EXISTS wiki_rag.chunk CASCADE;
 
 CREATE TABLE wiki_rag.chunk
 (
@@ -20,3 +20,5 @@ COMMENT ON COLUMN wiki_rag.chunk.embedding IS 'Vector embedding representation o
 COMMENT ON COLUMN wiki_rag.chunk.updated_at IS 'Timestamp indicating when the record was created or last updated';
 
 CREATE INDEX idx_texts_embedding_vector ON wiki_rag.chunk USING ivfflat (embedding vector_cosine_ops);
+
+ALTER TABLE wiki_rag.chunk OWNER TO csbot;

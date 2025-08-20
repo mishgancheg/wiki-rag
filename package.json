@@ -7,7 +7,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "tsc && node dist/server.js",
-    "db:migrate": "node dist/db.js",
+    "db:migrate": "node dist/server/init-db/init-db.js",
     "mock:wiki": "node wiki-mock-server/wiki-mock-server.js"
   },
   "dependencies": {
@@ -19,7 +19,9 @@
     "openai": "^4.0.0",
     "pg": "^8.11.0",
     "pgvector": "^0.1.8",
-    "p-limit": "^3.1.0"
+    "p-limit": "^3.1.0",
+    "openai-chat-tokens": "^0.2.8",
+    "rate-limiter-flexible": "^7.1.1"
   },
   "devDependencies": {
     "typescript": "^5.5.3",

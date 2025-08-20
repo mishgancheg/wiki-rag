@@ -1,5 +1,6 @@
-import { Pool, Client } from 'pg';
+import { Pool, Client, PoolClient } from 'pg';
 import { config } from './config.js';
+import pgvector from 'pgvector/pg';
 
 // PostgreSQL connection pool
 let pool: Pool | null = null;
@@ -20,16 +21,24 @@ const dbConfig = {
 export function initializePool(): Pool {
   if (!pool) {
     pool = new Pool(dbConfig);
-    
+
     pool.on('error', (err) => {
       console.error('PostgreSQL pool error:', err);
     });
-    
-    pool.on('connect', () => {
-      console.log('Connected to PostgreSQL database');
+
+    pool.on('connect', async (client: PoolClient) => {
+      try {
+        const registerTypesFunctions = [pgvector.registerType];
+        if (Array.isArray(registerTypesFunctions)) {
+          await Promise.all(registerTypesFunctions.map((fn) => fn(client)));
+        }
+        console.log('Connected to PostgreSQL database (types registered)');
+      } catch (err) {
+        console.error('Failed to register PostgreSQL custom types for client', err);
+      }
     });
   }
-  
+
   return pool;
 }
 
@@ -50,105 +59,8 @@ export async function closePool(): Promise<void> {
   }
 }
 
-// Database initialization and migration
-export async function initializeDatabase(): Promise<void> {
-  console.log('Initializing database...');
-  
-  try {
-    // Connect directly to PostgreSQL to create database if it doesn't exist
-    const adminClient = new Client({
-      host: config.pgHost,
-      port: config.pgPort,
-      user: config.pgUser,
-      password: config.pgPassword,
-      database: 'postgres', // Connect to default postgres database first
-    });
-    
-    await adminClient.connect();
-    
-    // Check if database exists, create if it doesn't
-    const dbCheckResult = await adminClient.query(
-      `SELECT 1 FROM pg_database WHERE datname = $1`,
-      [config.pgDatabase]
-    );
-    
-    if (dbCheckResult.rows.length === 0) {
-      console.log(`Creating database ${config.pgDatabase}...`);
-      await adminClient.query(`CREATE DATABASE "${config.pgDatabase}"`);
-    }
-    
-    await adminClient.end();
-    
-    // Now connect to the target database
-    const client = new Client(dbConfig);
-    await client.connect();
-    
-    // Enable pgvector extension
-    console.log('Enabling pgvector extension...');
-    await client.query('CREATE EXTENSION IF NOT EXISTS vector');
-    
-    // Create schema
-    console.log('Creating wiki_rag schema...');
-    await client.query('CREATE SCHEMA IF NOT EXISTS wiki_rag');
-    
-    // Create chunk table
-    console.log('Creating wiki_rag.chunk table...');
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS wiki_rag.chunk (
-        chunk_id       SERIAL PRIMARY KEY,
-        wiki_id        TEXT                                               NOT NULL,
-        text           TEXT                                               NOT NULL,
-        embedding_text TEXT                                               NOT NULL,
-        embedding      public.vector(1024)                                       NOT NULL,
-        updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
-      )
-    `);
-    
-    // Create question table
-    console.log('Creating wiki_rag.question table...');
-    await client.query(`
-        CREATE TABLE IF NOT EXISTS wiki_rag.question
-        (
-            question_id SERIAL PRIMARY KEY,
-            chunk_id    INTEGER                                            NOT NULL,
-            wiki_id     TEXT                                               NOT NULL,
-            text        TEXT                                               NOT NULL,
-            embedding   public.vector(1024)                                NOT NULL,
-            updated_at  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-            FOREIGN KEY (chunk_id) REFERENCES wiki_rag.chunk (chunk_id) ON DELETE CASCADE
-        )
-    `);
-    
-    // Create indexes
-    console.log('Creating vector indexes...');
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_chunk_embedding_vector 
-      ON wiki_rag.chunk USING ivfflat (embedding vector_cosine_ops)
-    `);
-    
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_question_embedding_vector 
-      ON wiki_rag.question USING ivfflat (embedding vector_cosine_ops)
-    `);
-    
-    // Create additional helpful indexes
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_chunk_wiki_id ON wiki_rag.chunk(wiki_id)
-    `);
-    
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_question_wiki_id ON wiki_rag.question(wiki_id)
-    `);
-    
-    await client.end();
-    
-    console.log('Database initialization completed successfully!');
-    
-  } catch (error) {
-    console.error('Database initialization failed:', error);
-    throw error;
-  }
-}
+// Database initialization has been moved to server/init-db/init-db.ts
+// This file now only contains connection pool and query helper functions.
 
 // Database query helpers
 export interface ChunkRecord {
@@ -177,13 +89,14 @@ export async function insertChunk(
   embedding: number[]
 ): Promise<number> {
   const pool = getPool();
+  const embeddingLiteral = JSON.stringify(embedding);
   const result = await pool.query(
     `INSERT INTO wiki_rag.chunk (wiki_id, text, embedding_text, embedding)
-     VALUES ($1, $2, $3, $4)
+     VALUES ($1, $2, $3, '${embeddingLiteral}')
      RETURNING chunk_id`,
-    [wikiId, text, embeddingText, `[${embedding.join(',')}]`]
+    [wikiId, text, embeddingText]
   );
-  
+
   return result.rows[0].chunk_id;
 }
 
@@ -195,20 +108,21 @@ export async function insertQuestion(
   embedding: number[]
 ): Promise<number> {
   const pool = getPool();
+  const embeddingLiteralQ = JSON.stringify(embedding);
   const result = await pool.query(
     `INSERT INTO wiki_rag.question (chunk_id, wiki_id, text, embedding)
-     VALUES ($1, $2, $3, $4)
+     VALUES ($1, $2, $3, '${embeddingLiteralQ}')
      RETURNING question_id`,
-    [chunkId, wikiId, text, `[${embedding.join(',')}]`]
+    [chunkId, wikiId, text]
   );
-  
+
   return result.rows[0].question_id;
 }
 
 // Delete chunks and questions by wiki_id
 export async function deleteByWikiId(wikiId: string): Promise<void> {
   const pool = getPool();
-  
+
   // Questions will be deleted automatically due to CASCADE foreign key
   await pool.query('DELETE FROM wiki_rag.chunk WHERE wiki_id = $1', [wikiId]);
 }
@@ -217,46 +131,65 @@ export async function deleteByWikiId(wikiId: string): Promise<void> {
 export async function searchSimilar(
   queryEmbedding: number[],
   threshold: number = 0.65,
-  limit: number = 10
-): Promise<Array<{ chunk_id: number; wiki_id: string; text: string; similarity: number; source: 'chunk' | 'question' }>> {
+  chunksLimit: number = 10
+): Promise<Array<{ chunk_id: number; wiki_id: string; text: string; cs: number }>> {
   const pool = getPool();
-  
+
   const embeddingStr = `[${queryEmbedding.join(',')}]`;
-  
-  // Search in both chunks and questions
-  const result = await pool.query(`
-    (
-      SELECT 
-        chunk_id,
-        wiki_id,
-        embedding_text as text,
-        1 - (embedding <=> $1::vector) as similarity,
-        'chunk' as source
-      FROM wiki_rag.chunk
-      WHERE 1 - (embedding <=> $1::vector) >= $2
-    )
-    UNION ALL
-    (
-      SELECT 
-        chunk_id,
-        wiki_id,
-        text,
-        1 - (embedding <=> $1::vector) as similarity,
-        'question' as source
-      FROM wiki_rag.question
-      WHERE 1 - (embedding <=> $1::vector) >= $2
-    )
-    ORDER BY similarity DESC
-    LIMIT $3
-  `, [embeddingStr, threshold, limit]);
-  
-  return result.rows;
+
+  // 1) Execute search on wiki_rag.question table
+  const questionResult = await pool.query(`
+    SELECT 
+      chunk_id,
+      wiki_id,
+      text,
+      (embedding <=> $1)::real as "cs"
+    FROM wiki_rag.question
+    WHERE (embedding <=> $1) <= $2
+    ORDER BY "cs"
+  `, [embeddingStr, threshold]);
+
+  // 2) Execute search on wiki_rag.chunk table
+  const chunkResult = await pool.query(`
+    SELECT 
+      chunk_id,
+      wiki_id,
+      text,
+      ("embedding" <=> $1)::real AS "cs"
+    FROM wiki_rag.chunk
+    WHERE (embedding <=> $1) <= $2
+    ORDER BY "cs"
+  `, [embeddingStr, threshold]);
+
+  // 3) Process the results: combine and get unique chunk_ids
+  const allResults = [...questionResult.rows, ...chunkResult.rows];
+
+  // Create a map to store the best similarity for each unique chunk_id
+  const chunkMap = new Map<number, { chunk_id: number; wiki_id: string; text: string; cs: number }>();
+
+  for (const row of allResults) {
+    const existing = chunkMap.get(row.chunk_id);
+    if (!existing || row.cs < existing.cs) {
+      chunkMap.set(row.chunk_id, {
+        chunk_id: row.chunk_id,
+        wiki_id: row.wiki_id,
+        text: row.text,
+        cs: row.cs
+      });
+    }
+  }
+
+  // Sort by similarity (ascending, since lower cosine distance means higher similarity)
+  // and return top-N records
+  return Array.from(chunkMap.values())
+    .sort((a, b) => a.cs - b.cs)
+    .slice(0, chunksLimit);
 }
 
 // Get chunks by IDs (for retrieving full content)
 export async function getChunksByIds(chunkIds: number[]): Promise<ChunkRecord[]> {
   if (chunkIds.length === 0) return [];
-  
+
   const pool = getPool();
   const result = await pool.query(
     `SELECT chunk_id, wiki_id, text, embedding_text, embedding, updated_at
@@ -265,32 +198,20 @@ export async function getChunksByIds(chunkIds: number[]): Promise<ChunkRecord[]>
      ORDER BY chunk_id`,
     [chunkIds]
   );
-  
+
   return result.rows;
 }
 
 // Check which wiki IDs are already indexed
 export async function getIndexedWikiIds(wikiIds: string[]): Promise<string[]> {
   if (wikiIds.length === 0) return [];
-  
+
   const pool = getPool();
   const result = await pool.query(
     `SELECT DISTINCT wiki_id FROM wiki_rag.chunk WHERE wiki_id = ANY($1::text[])`,
     [wikiIds]
   );
-  
+
   return result.rows.map(row => row.wiki_id);
 }
 
-// Run this script directly to initialize database
-if (require.main === module) {
-  initializeDatabase()
-    .then(() => {
-      console.log('Database setup completed!');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('Database setup failed:', error);
-      process.exit(1);
-    });
-}
