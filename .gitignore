@@ -11,3 +11,4 @@ yarn-error.log*
 
 *.private.*
 .env
+/wiki-mock-server/mock-data/
