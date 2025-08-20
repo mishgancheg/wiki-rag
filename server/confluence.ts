@@ -61,12 +61,14 @@ export class ConfluenceClient {
         },
       });
 
-      return response.data.results.map((space: any) => ({
-        key: space.key,
-        name: space.name,
-        type: space.type,
-        description: space.description?.plain?.value || '',
-      }));
+      return response.data.results
+        .filter((space: any) => space.type === 'global')
+        .map((space: any) => ({
+          key: space.key,
+          name: space.name,
+          type: space.type,
+          description: space.description?.plain?.value || '',
+        }));
     } catch (error) {
       console.error('Error fetching spaces:', error);
       throw new Error('Failed to fetch Confluence spaces');
