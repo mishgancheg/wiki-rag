@@ -42,6 +42,15 @@ let history = [];
 function render() {
     if (!messagesEl) return;
     messagesEl.innerHTML = '';
+
+    const getWikiUrl = (id) => {
+        const base = (window.CONFLUENCE_BASE_URL || localStorage.getItem('CONFLUENCE_BASE_URL') || '').toString();
+        const cleanBase = base.replace(/\/$/, '');
+        if (cleanBase) return `${cleanBase}/pages/viewpage.action?pageId=${encodeURIComponent(id)}`;
+        // Fallback to example base if not provided; adjust via window.CONFLUENCE_BASE_URL at runtime
+        return `https://wiki.finam.ru/pages/viewpage.action?pageId=${encodeURIComponent(id)}`;
+    };
+
     for (const m of history) {
         const div = document.createElement('div');
         div.className = `msg ${m.role}`;
@@ -50,7 +59,30 @@ function render() {
         if (m.sources && m.sources.length) {
             const meta = document.createElement('div');
             meta.className = 'sources';
-            meta.textContent = 'источники: ' + m.sources.map(s => `${s.wiki_id} (${(s.similarity*100).toFixed(0)}%)`).join(', ');
+
+            // Label
+            const label = document.createElement('span');
+            label.textContent = 'источники: ';
+            meta.appendChild(label);
+
+            // Build list of links with CS
+            m.sources.forEach((s, idx) => {
+                const span = document.createElement('span');
+                const a = document.createElement('a');
+                a.href = getWikiUrl(s.wiki_id);
+                a.textContent = String(s.wiki_id);
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                span.appendChild(a);
+                const cs = document.createElement('span');
+                cs.textContent = ` (CS=${Number(s.similarity).toFixed(3)})`;
+                span.appendChild(cs);
+                meta.appendChild(span);
+                if (idx < m.sources.length - 1) {
+                    meta.appendChild(document.createTextNode(', '));
+                }
+            });
+
             messagesEl.appendChild(meta);
         }
     }

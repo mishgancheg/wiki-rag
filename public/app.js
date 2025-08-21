@@ -334,6 +334,15 @@ class WikiRAGApp {
         e.stopPropagation();
         this.togglePageChildren(page.id, toggle);
       });
+      // Double-click on the expand icon expands all descendants recursively
+      toggle.addEventListener('dblclick', async (e) => {
+        e.stopPropagation();
+        try {
+          await this.expandAllDescendants(page.id, toggle);
+        } catch (err) {
+          console.error('Error expanding all descendants:', err);
+        }
+      });
     }
 
     // Checkbox
@@ -365,6 +374,36 @@ class WikiRAGApp {
     item.appendChild(title);
 
     return item;
+  }
+
+  // Expand the specified node and all its descendants recursively
+  async expandAllDescendants (pageId, toggleButton) {
+    // Ensure the current node is expanded
+    if (toggleButton && toggleButton.innerHTML !== '▼') {
+      await this.togglePageChildren(pageId, toggleButton);
+    }
+
+    // After expansion, the immediate children container should be the next sibling
+    const parentItem = toggleButton ? toggleButton.parentElement : null;
+    let childrenContainer = null;
+    if (parentItem) {
+      const next = parentItem.nextElementSibling;
+      if (next && next.classList && next.classList.contains('tree-children')) {
+        childrenContainer = next;
+      }
+    }
+
+    if (!childrenContainer) return;
+
+    // For each immediate child, expand if it has its own children
+    const childItems = Array.from(childrenContainer.children).filter(el => el.classList && el.classList.contains('tree-item'));
+    for (const childItem of childItems) {
+      const childToggle = childItem.querySelector('button.tree-toggle');
+      if (!childToggle) continue; // no children
+      const childPageId = childItem.dataset.pageId;
+      // Recursively expand this child and its descendants
+      await this.expandAllDescendants(childPageId, childToggle);
+    }
   }
 
   async togglePageChildren (pageId, toggleButton) {
@@ -662,10 +701,17 @@ class WikiRAGApp {
       return;
     }
 
+    const buildWikiUrl = (id) => {
+      const base = (window.CONFLUENCE_BASE_URL || localStorage.getItem('CONFLUENCE_BASE_URL') || '').toString();
+      const cleanBase = base.replace(/\/$/, '');
+      if (cleanBase) return `${cleanBase}/pages/viewpage.action?pageId=${encodeURIComponent(id)}`;
+      return `https://wiki.finam.ru/pages/viewpage.action?pageId=${encodeURIComponent(id)}`;
+    };
+
     const resultsHtml = results.results.map(result => `
             <div class="search-result">
                 <div class="similarity">${(result.similarity * 100).toFixed(1)}%</div>
-                <h4>Wiki ID: ${result.wiki_id}</h4>
+                <h4>Wiki ID: <a href="${buildWikiUrl(result.wiki_id)}" target="_blank" rel="noopener noreferrer">${result.wiki_id}</a></h4>
                 <p style="margin: 0.5rem 0; color: #666; font-size: 0.9rem;">
                     Source: ${result.source} | Chunk ID: ${result.chunk_id}
                 </p>
