@@ -26,12 +26,8 @@
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            height: 40px;
             border-radius: 8px;
             margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            overflow: hidden;
         }
 
         .header-content {
@@ -40,7 +36,7 @@
             align-items: center;
             justify-content: space-between;
             padding: 0 1rem;
-            height: 100%;
+            height: 50px;
         }
 
         .header-title {
@@ -61,27 +57,76 @@
             font-weight: 400;
         }
 
-        .header-status {
+        /* Tab Navigation */
+        .tabs {
+            display: flex;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 0 0 8px 8px;
+            overflow: hidden;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px 20px;
+            text-align: center;
+            cursor: pointer;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .tab:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .tab.active {
+            background: rgba(255, 255, 255, 0.3);
+            font-weight: 600;
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Status badges - moved to wiki management */
+        .status-section {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .status-section h3 {
+            color: #2c3e50;
+            margin-bottom: 0.75rem;
+            font-size: 1rem;
+        }
+
+        .status-badges {
             display: flex;
             gap: 0.5rem;
+            flex-wrap: wrap;
         }
 
         .status-badge {
             display: flex;
             align-items: center;
             gap: 0.25rem;
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(10px);
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
             padding: 0.25rem 0.5rem;
             border-radius: 12px;
             font-size: 0.75rem;
             transition: all 0.2s ease;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .status-badge:hover {
-            background: rgba(255, 255, 255, 0.25);
-            transform: translateY(-1px);
         }
 
         .status-badge .status-number {
@@ -95,18 +140,21 @@
         }
 
         .status-badge.processing {
-            background: rgba(52, 152, 219, 0.3);
-            border-color: rgba(52, 152, 219, 0.5);
+            background: rgba(52, 152, 219, 0.1);
+            border-color: rgba(52, 152, 219, 0.3);
+            color: #3498db;
         }
 
         .status-badge.completed {
-            background: rgba(39, 174, 96, 0.3);
-            border-color: rgba(39, 174, 96, 0.5);
+            background: rgba(39, 174, 96, 0.1);
+            border-color: rgba(39, 174, 96, 0.3);
+            color: #27ae60;
         }
 
         .status-badge.errors {
-            background: rgba(231, 76, 60, 0.3);
-            border-color: rgba(231, 76, 60, 0.5);
+            background: rgba(231, 76, 60, 0.1);
+            border-color: rgba(231, 76, 60, 0.3);
+            color: #e74c3c;
         }
 
         .main-content {
@@ -265,10 +313,9 @@
             padding-bottom: 0.5rem;
         }
 
-
         .search-panel {
             grid-column: 1 / -1;
-            margin-top: 2rem;
+            margin-top: 0;
         }
 
         .search-results {
@@ -311,119 +358,33 @@
             to { transform: rotate(360deg); }
         }
 
+        .hidden {
+            display: none !important;
+        }
+
         .progress-bar {
             width: 100%;
             height: 8px;
-            background: #e0e0e0;
+            background-color: #e0e0e0;
             border-radius: 4px;
             overflow: hidden;
-            margin: 1rem 0;
+            margin-top: 1rem;
         }
 
         .progress-fill {
             height: 100%;
             background: linear-gradient(90deg, #3498db, #2980b9);
+            border-radius: 4px;
             transition: width 0.3s ease;
             width: 0%;
         }
 
-        .alert {
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-        }
-
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .alert-warning {
-            background: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeaa7;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
         .actions {
             display: flex;
-            gap: 0.75rem;
-            margin-top: 1.5rem;
-            flex-wrap: nowrap;
-            overflow-x: auto;
+            gap: 1rem;
+            flex-wrap: wrap;
         }
 
-        @media (max-width: 768px) {
-            .main-content {
-                grid-template-columns: 1fr;
-            }
-
-            .container {
-                padding: 10px;
-            }
-
-            .header h1 {
-                font-size: 2rem;
-            }
-
-            .actions {
-                flex-direction: column;
-            }
-        }
-    </style>
-    <!-- Compact UI overrides -->
-    <style>
-        /* Overall spacing */
-        .container { padding: 16px !important; }
-        .main-content { gap: 1rem !important; margin-bottom: 1rem !important; }
-
-        /* Panels and titles */
-        .panel { padding: 1rem !important; }
-        .panel h2 { font-size: 1.25rem !important; margin-bottom: 0.75rem !important; padding-bottom: 0.35rem !important; }
-
-        /* Form controls */
-        .form-group { margin-bottom: 0.75rem !important; }
-        .form-group label { margin-bottom: 0.25rem !important; font-size: 0.95rem !important; }
-        .form-control { padding: 0.5rem !important; font-size: 0.95rem !important; border-width: 1px !important; }
-
-        /* Buttons */
-        .btn { padding: 0.5rem 1rem !important; font-size: 0.95rem !important; gap: 0.4rem !important; }
-        #load-spaces-btn { margin-top: 0.25rem !important; }
-
-        /* Page tree compact rows */
-        .page-tree { padding: 0.75rem !important; max-height: 460px !important; }
-        .tree-item { margin: 0.25rem 0 !important; padding: 0.25rem 0.35rem !important; gap: 0.4rem !important; height: 22px !important; }
-        .tree-toggle { width: 16px !important; height: 16px !important; }
-        .tree-checkbox { margin-right: 0.35rem !important; }
-
-        /* Page preview */
-        .page-preview { padding: 1rem !important; max-height: 360px !important; }
-
-        /* Search panel spacing */
-        .search-panel { margin-top: 1rem !important; }
-
-        /* Mobile responsive adjustments */
-        @media (max-width: 768px) {
-            .container { padding: 10px !important; }
-            .header h1 { font-size: 1.2rem !important; }
-            .header-subtitle { font-size: 0.7rem !important; }
-            .header-status { gap: 0.3rem !important; }
-            .status-badge { padding: 0.2rem 0.4rem !important; font-size: 0.7rem !important; }
-            .status-badge .status-number { font-size: 0.75rem !important; }
-        }
-    </style>
-    <!-- Token Modal styles -->
-    <style>
         .icon-btn {
             background: transparent;
             border: 1px solid #e0e0e0;
@@ -436,41 +397,237 @@
             justify-content: center;
             cursor: pointer;
         }
-        .icon-btn:hover { background: #f2f4f8; }
 
+        .icon-btn:hover {
+            background: #f2f4f8;
+        }
+
+        /* Chat specific styles */
+        .chat-wrapper {
+            display: flex;
+            flex-direction: column;
+            height: 70vh;
+        }
+
+        .chat-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow: hidden;
+        }
+
+        .messages {
+            flex: 1;
+            background: #fafafa;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 12px;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .msg {
+            max-width: 80%;
+            padding: 10px 12px;
+            margin: 6px 0;
+            border-radius: 14px;
+            line-height: 1.35;
+            white-space: pre-wrap;
+        }
+
+        .msg.user {
+            align-self: flex-end;
+            background: #dcfce7;
+            color: #1f2937;
+        }
+
+        .msg.assistant {
+            align-self: flex-start;
+            background: #eef2ff;
+            color: #1f2937;
+        }
+
+        .meta {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+
+        .composer {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+
+        .input {
+            flex: 1;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 16px;
+            padding: 10px;
+        }
+
+        textarea {
+            width: 100%;
+            border: none;
+            outline: none;
+            resize: none;
+            min-height: 44px;
+            max-height: 160px;
+            font-size: 15px;
+            background: transparent;
+        }
+
+        .send-btn {
+            height: 44px;
+        }
+
+        .loader {
+            display: inline-flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #9aa4b2;
+            animation: bounce 1s infinite;
+        }
+
+        .dot:nth-child(2) {
+            animation-delay: .15s;
+        }
+
+        .dot:nth-child(3) {
+            animation-delay: .3s;
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: translateY(0);
+                opacity: .6;
+            }
+            40% {
+                transform: translateY(-6px);
+                opacity: 1;
+            }
+        }
+
+        .sources {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 6px;
+        }
+
+        /* Alert styles */
+        #alerts-container {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 1000;
+        }
+
+        .alert {
+            background: white;
+            border-left: 4px solid;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            animation: slideIn 0.3s ease;
+        }
+
+        .alert.success {
+            border-color: #27ae60;
+            color: #155724;
+            background-color: #d4edda;
+        }
+
+        .alert.error {
+            border-color: #e74c3c;
+            color: #721c24;
+            background-color: #f8d7da;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Modal styles */
         .modal {
             position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.35);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 1rem;
             z-index: 1000;
         }
+
         .modal-dialog {
-            background: #fff;
-            width: 100%;
+            background: white;
             max-width: 380px;
             border-radius: 12px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             overflow: hidden;
         }
-        .modal-header { padding: 0.75rem 1rem; border-bottom: 1px solid #eee; }
-        .modal-body { padding: 0.75rem 1rem; }
-        .modal-actions { padding: 0.75rem 1rem; border-top: 1px solid #eee; display: flex; gap: 0.5rem; justify-content: flex-end; }
+
+        .modal-header {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .modal-body {
+            padding: 0.75rem 1rem;
+        }
+
+        .modal-actions {
+            padding: 0.75rem 1rem;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Compact Header with Integrated Status -->
+        <!-- Header with Tabs -->
         <div class="header">
             <div class="header-content">
                 <div class="header-title">
                     <h1>🔍 Wiki-RAG</h1>
                     <span class="header-subtitle">Confluence Indexing & Search</span>
                 </div>
-                <div class="header-status">
+            </div>
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('wiki-management')">📚 Wiki Management</button>
+                <button class="tab" onclick="switchTab('semantic-search')">🔍 Semantic Search</button>
+                <button class="tab" onclick="switchTab('chat')">💬 Chat</button>
+            </div>
+        </div>
+
+        <!-- Wiki Management Tab -->
+        <div id="wiki-management" class="tab-content active">
+            <!-- Status Section -->
+            <div class="status-section">
+                <h3>📊 Queue Process Status</h3>
+                <div class="status-badges">
                     <div class="status-badge queued">
                         <span class="status-number" id="status-queued">0</span>
                         <span class="status-label">Queue</span>
@@ -489,106 +646,128 @@
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Wiki Management Panel -->
-            <div class="panel">
-                <h2 style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
-                    <span>📚 Wiki Management</span>
-                    <button id="token-icon-btn" class="icon-btn" title="Confluence Personal Access Token" aria-label="Confluence Personal Access Token">🔑</button>
-                </h2>
+            <!-- Main Content -->
+            <div class="main-content">
+                <!-- Wiki Management Panel -->
+                <div class="panel">
+                    <h2 style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+                        <span>📚 Wiki Management</span>
+                        <button id="token-icon-btn" class="icon-btn" title="Confluence Personal Access Token" aria-label="Confluence Personal Access Token">🔑</button>
+                    </h2>
 
-                <!-- Confluence Token -->
-                <div class="form-group" style="display: none;">
-                    <label for="confluence-token">Confluence Personal Access Token</label>
-                    <input type="password" id="confluence-token" class="form-control"
-                           placeholder="Enter your Confluence token..."
-                           autocomplete="current-password">
-                </div>
+                    <!-- Confluence Token -->
+                    <div class="form-group" style="display: none;">
+                        <label for="confluence-token">Confluence Personal Access Token</label>
+                        <input type="password" id="confluence-token" class="form-control"
+                               placeholder="Enter your Confluence token..."
+                               autocomplete="current-password">
+                    </div>
 
-                <!-- Space Selection -->
-                <div class="form-group">
-                    <div style="display: flex; gap: 0.5rem; align-items: center;">
-                        <button id="load-spaces-btn" class="btn">
-                            <span>Load Spaces</span>
+                    <!-- Space Selection -->
+                    <div class="form-group">
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <button id="load-spaces-btn" class="btn">
+                                <span>Load Spaces</span>
+                                <div class="loading hidden"></div>
+                            </button>
+                            <select id="space-select" class="form-control" disabled style="flex: 1;">
+                                <option value="">Select a space...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Page Tree -->
+                    <div class="form-group">
+                        <label>Pages</label>
+                        <div class="page-tree" id="page-tree">
+                            <div style="text-align: center; color: #666; padding: 2rem;">
+                                Select a space to load pages
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="actions">
+                        <button id="select-all-btn" class="btn btn-secondary" disabled>Select All</button>
+                        <button id="deselect-all-btn" class="btn btn-secondary" disabled>Deselect All</button>
+                        <button id="index-selected-btn" class="btn btn-success" disabled>
+                            <span>Index Selected</span>
                             <div class="loading hidden"></div>
                         </button>
-                        <select id="space-select" class="form-control" disabled style="flex: 1;">
-                            <option value="">Select a space...</option>
-                        </select>
+                        <button id="index-descendants-btn" class="btn btn-success" disabled>Index Descendants</button>
+                        <button id="remove-index-btn" class="btn btn-danger" disabled>Remove Index</button>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="progress-bar hidden" id="indexing-progress">
+                        <div class="progress-fill" id="progress-fill"></div>
                     </div>
                 </div>
 
-                <!-- Page Tree -->
-                <div class="form-group">
-                    <label>Pages</label>
-                    <div class="page-tree" id="page-tree">
+                <!-- Page Preview Panel -->
+                <div class="panel">
+                    <h2>👁️ Page Preview</h2>
+                    <div id="page-preview-content">
                         <div style="text-align: center; color: #666; padding: 2rem;">
-                            Select a space to load pages
+                            Select a page to see preview
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Semantic Search Tab -->
+        <div id="semantic-search" class="tab-content">
+            <div class="panel search-panel">
+                <h2>🔍 Semantic Search</h2>
+
+                <div class="form-group" style="margin-bottom: 0.75rem;">
+                    <div style="display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: nowrap;">
+                        <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
+                            <label for="search-query">Search Query</label>
+                            <input type="text" id="search-query" class="form-control" placeholder="Enter your search query..." autocomplete="off">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0; width: 220px;">
+                            <label for="search-threshold">Similarity Threshold</label>
+                            <input type="number" id="search-threshold" class="form-control" value="0.65" min="0" max="1" step="0.05">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0; width: 110px;">
+                            <label for="search-limit">Max Results</label>
+                            <input type="number" id="search-limit" class="form-control" value="10" min="1" max="50">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>&nbsp;</label>
+                            <button id="search-btn" class="btn">
+                                <span>Search</span>
+                                <div class="loading hidden"></div>
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Actions -->
-                <div class="actions">
-                    <button id="select-all-btn" class="btn btn-secondary" disabled>Select All</button>
-                    <button id="deselect-all-btn" class="btn btn-secondary" disabled>Deselect All</button>
-                    <button id="index-selected-btn" class="btn btn-success" disabled>
-                        <span>Index Selected</span>
-                        <div class="loading hidden"></div>
-                    </button>
-                    <button id="index-descendants-btn" class="btn btn-success" disabled>Index Descendants</button>
-                    <button id="remove-index-btn" class="btn btn-danger" disabled>Remove Index</button>
-                </div>
-
-                <!-- Progress Bar -->
-                <div class="progress-bar hidden" id="indexing-progress">
-                    <div class="progress-fill" id="progress-fill"></div>
-                </div>
-            </div>
-
-            <!-- Page Preview Panel -->
-            <div class="panel">
-                <h2>👁️ Page Preview</h2>
-                <div id="page-preview-content">
-                    <div style="text-align: center; color: #666; padding: 2rem;">
-                        Select a page to see preview
-                    </div>
-                </div>
+                <div id="search-results" class="search-results"></div>
             </div>
         </div>
 
-        <!-- Search Panel -->
-        <div class="panel search-panel">
-            <h2>🔍 Semantic Search</h2>
-
-            <div class="form-group" style="margin-bottom: 0.75rem;">
-                <div style="display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: nowrap;">
-                    <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
-                        <label for="search-query">Search Query</label>
-                        <input type="text" id="search-query" class="form-control" placeholder="Enter your search query..." autocomplete="off">
+        <!-- Chat Tab -->
+        <div id="chat" class="tab-content">
+            <div class="panel">
+                <div class="chat-wrapper">
+                    <div class="chat-main">
+                        <div id="messages" class="messages"></div>
+                        <div class="composer">
+                            <div class="input">
+                                <textarea id="input" placeholder="Напишите сообщение... (Enter — отправить, Shift+Enter — перенос)"></textarea>
+                            </div>
+                            <button id="sendBtn" class="btn btn-success send-btn">➤</button>
+                        </div>
                     </div>
-                    <div class="form-group" style="margin-bottom: 0; width: 220px;">
-                        <label for="search-threshold">Similarity Threshold</label>
-                        <input type="number" id="search-threshold" class="form-control" value="0.65" min="0" max="1" step="0.05">
-                    </div>
-                    <div class="form-group" style="margin-bottom: 0; width: 110px;">
-                        <label for="search-limit">Max Results</label>
-                        <input type="number" id="search-limit" class="form-control" value="10" min="1" max="50">
-                    </div>
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label>&nbsp;</label>
-                        <button id="search-btn" class="btn">
-                            <span>Search</span>
-                            <div class="loading hidden"></div>
-                        </button>
+                    <div style="text-align: center; margin-top: 1rem;">
+                        <button id="clearBtn" class="btn btn-secondary">🧹 Очистить историю</button>
                     </div>
                 </div>
             </div>
-
-            <div id="search-results" class="search-results"></div>
         </div>
 
         <!-- Token Modal -->
@@ -611,6 +790,131 @@
         <div id="alerts-container"></div>
     </div>
 
+    <script>
+        // Tab switching functionality
+        function switchTab(tabId) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabId).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+            
+            // Focus input for chat tab
+            if (tabId === 'chat') {
+                setTimeout(() => {
+                    document.getElementById('input').focus();
+                }, 100);
+            }
+        }
+
+        // Chat functionality
+        const messagesEl = document.getElementById('messages');
+        const inputEl = document.getElementById('input');
+        const sendBtn = document.getElementById('sendBtn');
+        const clearBtn = document.getElementById('clearBtn');
+
+        /**
+         * Chat history in OpenAI-like shape: { role, content }
+         */
+        let history = [];
+
+        function render() {
+            messagesEl.innerHTML = '';
+            for (const m of history) {
+                const div = document.createElement('div');
+                div.className = `msg ${m.role}`;
+                div.textContent = m.content;
+                messagesEl.appendChild(div);
+                if (m.sources && m.sources.length) {
+                    const meta = document.createElement('div');
+                    meta.className = 'sources';
+                    meta.textContent = 'источники: ' + m.sources.map(s => `${s.wiki_id} (${(s.similarity*100).toFixed(0)}%)`).join(', ');
+                    messagesEl.appendChild(meta);
+                }
+            }
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function addLoader() {
+            const wrap = document.createElement('div');
+            wrap.className = 'msg assistant';
+            wrap.style.display = 'inline-flex';
+            wrap.style.alignItems = 'center';
+            const loader = document.createElement('div');
+            loader.className = 'loader';
+            loader.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+            wrap.appendChild(loader);
+            messagesEl.appendChild(wrap);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            return wrap;
+        }
+
+        async function sendMessage() {
+            const text = (inputEl.value || '').trim();
+            if (!text) return;
+            inputEl.value = '';
+
+            history.push({ role: 'user', content: text });
+            render();
+
+            const loaderEl = addLoader();
+
+            const payload = {
+                messages: history.slice(-10), // client-side cap
+                threshold: 0.65,
+                chunksLimit: 6,
+            };
+
+            try {
+                const resp = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!resp.ok) throw new Error('Network error');
+                const data = await resp.json();
+
+                loaderEl.remove();
+
+                const assistantMsg = { role: 'assistant', content: data.reply || '' };
+                if (Array.isArray(data.sources)) assistantMsg.sources = data.sources;
+                history.push(assistantMsg);
+                render();
+            } catch (e) {
+                loaderEl.remove();
+                history.push({ role: 'assistant', content: 'Извините, произошла ошибка при получении ответа.' });
+                render();
+            }
+        }
+
+        // Chat events
+        sendBtn.addEventListener('click', sendMessage);
+        inputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        clearBtn.addEventListener('click', () => {
+            history = [];
+            render();
+            inputEl.focus();
+        });
+
+        // Welcome message for chat
+        history.push({ role: 'assistant', content: 'Привет! Я чат Wiki-RAG. Задайте вопрос — я поищу ответ в базе знаний.' });
+        render();
+    </script>
     <script type="module" src="app.js"></script>
 </body>
 </html>
