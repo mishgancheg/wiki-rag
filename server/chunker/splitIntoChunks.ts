@@ -4,6 +4,7 @@ import { config } from '../config.js';
 import { chatCompletionRequest } from "../llm/openai-chat.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions/completions";
 import { CHUNK_CHARS_LIMIT } from "../constants";
+import { PROMPT_FOR_CHUNKING } from "../prompts";
 
 // Interface for chunk result
 export interface ChunkResult {
@@ -38,8 +39,9 @@ export async function splitIntoChunks (cleanedHtml: string): Promise<ChunkResult
     console.log(`[Chunker] Processing ${cleanedHtml.length} characters...`);
     // Create messages for chat completion
     const messages: ChatCompletionMessageParam[] = [
-      { role: 'system', content: config.promptChunking },
+      { role: 'system', content: PROMPT_FOR_CHUNKING },
       { role: 'user', content: cleanedHtml },
+      { role: 'system', content: PROMPT_FOR_CHUNKING },
     ];
 
     // Call OpenAI Chat Completions API with JSON mode via centralized helper

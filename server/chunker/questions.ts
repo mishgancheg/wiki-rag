@@ -2,6 +2,7 @@ import { config } from '../config.js';
 import { ChatCompletionCreateParamsBase } from "openai/resources/chat/completions/completions";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions/completions";
 import { chatCompletionRequest, IChatCompletionAnswer } from "../llm/openai-chat.js";
+import { getPromptForQuestions } from "../prompts";
 
 // Interface for questions result
 export interface QuestionsResult {
@@ -49,27 +50,12 @@ export async function generateQuestionsForChunk (
   try {
     console.log(`[Questions] Generating questions for chunk (${chunkLength} characters)...`);
 
-    // Create enhanced prompt with specific instructions
-    const enhancedPrompt = `${config.promptQuestions}
-
-Additional guidelines:
-- Generate ${minQuestions}-${targetQuestions} questions
-- Make questions diverse: factual, conceptual, procedural, comparative
-- Questions should be specific enough to match this exact content
-- Use natural language that users would actually search for
-- Include questions about key concepts, processes, and details
-- Avoid overly generic questions that could apply to many documents
-- Questions should help users find this specific information
-
-${context ? `\nContext: ${context}` : ''}`;
-    const secondPrompt = `Generate ${minQuestions}-${targetQuestions
-    } high-quality questions and return as JSON with the exact format: {"questions": ["question1", "question2", ...]}`;
-    // Create messages for chat completion
-    const messages: ChatCompletionMessageParam[] = [
-      { role: 'system', content: enhancedPrompt },
-      { role: 'user', content: chunkText },
-      { role: 'system', content: secondPrompt },
-    ];
+    const messages: ChatCompletionMessageParam[] = [];
+    if (context) {
+      messages.push({ role: 'system', content: `--- CONTEXT ---\n${context}\n--- END OF CONTEXT ---` });
+    }
+    messages.push({ role: 'user', content: `--- TEXT ---\n${chunkText}\n--- END OF TEXT ---` });
+    messages.push({ role: 'system', content: getPromptForQuestions(minQuestions, targetQuestions, !!context) });
 
     const model = config.modelForQuestions;
 

@@ -1,5 +1,4 @@
 import dotenv from 'dotenv';
-import { CHUNK_CHARS_LIMIT } from "./constants";
 
 // Load environment variables from .env file
 dotenv.config();
@@ -26,13 +25,7 @@ export interface Config {
   pgUser: string;
   pgPassword: string;
   pgDatabase: string;
-
-  // Prompts
-  promptChunking: string;
-  promptQuestions: string;
 }
-
-export const LNG = `Весь текст переводи на РУССКИЙ язык`;
 
 // Default configuration with environment variable fallbacks
 export const config: Config = {
@@ -57,47 +50,6 @@ export const config: Config = {
   pgUser: process.env.PGUSER || 'postgres',
   pgPassword: process.env.PGPASSWORD || '',
   pgDatabase: process.env.PGDATABASE || 'wiki_rag',
-
-  // Prompts
-  promptChunking: `
-You are an expert assistant specializing in high-quality text chunking for use in Retrieval-Augmented Generation (RAG) systems.
-
-Your task is to analyze the provided content and split it into **meaningful and logically connected chunks**, suitable for indexing and retrieval in RAG pipelines.
-
-**Chunk requirements:**
-- Break content into chunks that do not exceed ${CHUNK_CHARS_LIMIT} characters.
-- Each chunk must preserve the **original text exactly**, with no omissions, reductions, or paraphrasing.
-- Preserve all formatting.
-- Each chunk should be **cohesive** and **self-contained**, meaning it should make sense and be interpretable on its own.
-- Chunk boundaries should follow the **logical flow** of the original content.
-
-IMPORTANT: DO NOT LOSE ANYTHING FROM CONTENT. All content should enter the chunks. Without exception.
-Therefore do the following:
-- Break content into chunks.
-- Check if the entire text of the content is in chopped chunks. If something is missing, add.
-- place the chunks in an ARRAY OF RESULTS
-
-**Output the result in the JSON structure pointed in \`response_format\`**
-
-${LNG}
-`,
-
-  promptQuestions: `
-You are an expert specializing in inventing questions for the text.
-
-Your task is to generate questions that users might ask to retrieve the information from given ---TEXT---.
-
-**Questions requirements:**
-- Generate **3–20 natural language questions** that users might ask to retrieve the information from given ---TEXT---.
-- If you can come up with more than 20 questions - come up with more!
-- Look at the text in the ---CONTEXT---. Think about what else can refer to the context.
-- You can form questions of a more general plan than the ---TEXT---.
-- If you understand that this text can be interesting in the ---CONTEXT--- of another requested information, then add questions to that context.
-
-**Output the result in the JSON structure pointed in \`response_format\`**
-
-${LNG}
-`,
 };
 
 // Apply TLS relaxation if explicitly requested (use with caution)
