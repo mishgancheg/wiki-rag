@@ -61,7 +61,7 @@ export function createIndexHandler (deps: HandlerDeps) {
       }
 
       // Start processing in background
-      processPages(pages, token, { concurrency: 3, startDelay: 100 }, (pageId, progress) => {
+      processPages(pages, token, { startDelay: 5 }, (pageId, progress) => {
         const task = Array.from(indexingTasks.values()).find(t => t.pageId === pageId);
         if (task) {
           task.status = progress.stage === 'completed' ? 'completed' : progress.stage === 'error' ? 'error' : 'processing';

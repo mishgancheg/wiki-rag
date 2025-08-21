@@ -6,6 +6,7 @@ import { generateQuestionsForChunk } from '../../chunker/questions';
 import { getEmbeddingsForTexts } from '../../lib/embeddings';
 import { insertChunk, insertQuestion, deleteByWikiId } from '../../lib/db';
 import * as cheerio from 'cheerio';
+import { MAX_QUESTIONS, MIN_QUESTIONS } from "../../constants";
 
 // Interface for pipeline result
 export interface PipelineResult {
@@ -29,6 +30,18 @@ export interface PipelineProgress {
   error?: string;
 }
 
+// Helper: convert cleaned HTML chunk to plain text for embeddings
+const stripHtmlToText = (html: string): string => {
+  try {
+    const $ = cheerio.load(html, { xmlMode: false });
+    const text = $.root().text();
+    return text.replace(/\s+/g, ' ').trim();
+  } catch {
+    // Fallback: naive tag removal
+    return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+};
+
 /**
  * Process a single wiki page through the complete RAG pipeline
  * @param pageId Wiki page ID to process
@@ -47,17 +60,13 @@ export async function processPage (
   } = {},
   progressCallback?: (progress: PipelineProgress) => void,
 ): Promise<PipelineResult> {
-  // Helper: convert cleaned HTML chunk to plain text for embeddings
-  const stripHtmlToText = (html: string): string => {
-    try {
-      const $ = cheerio.load(html, { xmlMode: false });
-      const text = $.root().text();
-      return text.replace(/\s+/g, ' ').trim();
-    } catch {
-      // Fallback: naive tag removal
-      return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-    }
-  };
+  if (typeof options.minQuestions !== 'number') {
+    options.minQuestions = MIN_QUESTIONS;
+  }
+  if (!options.maxQuestions) {
+    options.maxQuestions = MAX_QUESTIONS;
+  }
+
   const startTime = Date.now();
   let totalTokens = 0;
   let totalCost = 0;
@@ -126,7 +135,6 @@ export async function processPage (
     reportProgress('questions', 50, 'Generating questions for chunks...');
 
     // Step 5: Generate questions for each chunk (with rate limiting)
-    const limit = pLimit(3); // Process 3 chunks concurrently
     let questionsGenerated = 0;
     const chunkData: Array<{
       chunkText: string;
@@ -136,45 +144,44 @@ export async function processPage (
       chunkCost: number;
     }> = [];
 
-    const questionPromises = chunkResult.chunks.map((chunk, index) =>
-      limit(async () => {
-        try {
-          console.log(`[Pipeline] Processing chunk ${index + 1}/${chunkResult.chunks.length} for questions...`);
 
-          // Generate questions for this chunk
-          const questionsResult = await generateQuestionsForChunk(chunk, {
-            minQuestions: options.minQuestions || 3,
-            maxQuestions: options.maxQuestions || 20,
-            context: `Page: ${pageContent.title}`,
-          });
+    const getQuestions = async (chunk: string, index: number) => {
+      try {
+        console.log(`[Pipeline] Processing chunk ${index + 1}/${chunkResult.chunks.length} for questions...`);
 
-          totalTokens += questionsResult.totalTokens || 0;
-          totalCost += questionsResult.totalCost || 0;
-          questionsGenerated += questionsResult.questions.length;
+        // Generate questions for this chunk
+        const questionsResult = await generateQuestionsForChunk(chunk, {
+          minQuestions: options.minQuestions,
+          maxQuestions: options.maxQuestions,
+          context: `Page: ${pageContent.title}`,
+        });
 
-          chunkData[index] = {
-            chunkText: chunksWithMetadata[index],
-            embeddingText: stripHtmlToText(chunk), // Plain text for embedding (HTML stripped)
-            questions: questionsResult.questions,
-            chunkTokens: questionsResult.totalTokens || 0,
-            chunkCost: questionsResult.totalCost || 0,
-          };
+        totalTokens += questionsResult.totalTokens || 0;
+        totalCost += questionsResult.totalCost || 0;
+        questionsGenerated += questionsResult.questions.length;
 
-          reportProgress('questions', 50 + (index / chunkResult.chunks.length) * 30);
-        } catch (error) {
-          console.error(`[Pipeline] Failed to generate questions for chunk ${index}:`, error);
-          // Continue with empty questions for this chunk
-          chunkData[index] = {
-            chunkText: chunksWithMetadata[index],
-            embeddingText: stripHtmlToText(chunk),
-            questions: [],
-            chunkTokens: 0,
-            chunkCost: 0,
-          };
-        }
-      }),
-    );
+        chunkData[index] = {
+          chunkText: chunksWithMetadata[index],
+          embeddingText: stripHtmlToText(chunk), // Plain text for embedding (HTML stripped)
+          questions: questionsResult.questions,
+          chunkTokens: questionsResult.totalTokens || 0,
+          chunkCost: questionsResult.totalCost || 0,
+        };
 
+        reportProgress('questions', 50 + (index / chunkResult.chunks.length) * 30);
+      } catch (error) {
+        console.error(`[Pipeline] Failed to generate questions for chunk ${index}:`, error);
+        // Continue with empty questions for this chunk
+        chunkData[index] = {
+          chunkText: chunksWithMetadata[index],
+          embeddingText: stripHtmlToText(chunk),
+          questions: [],
+          chunkTokens: 0,
+          chunkCost: 0,
+        };
+      }
+    };
+    const questionPromises = chunkResult.chunks.map(getQuestions);
     await Promise.all(questionPromises);
 
     reportProgress('embeddings', 80, 'Generating embeddings...');
@@ -188,7 +195,7 @@ export async function processPage (
     let savedQuestions = 0;
 
     // Prepare inputs
-    const chunkEmbeddingInputs = chunkData.map(d => d.embeddingText);
+    const chunkEmbeddingInputs = chunkData.map((d) => d.embeddingText);
     const questionEmbeddingInputs: string[] = [];
     const questionCountsPerChunk: number[] = [];
     for (const d of chunkData) {
@@ -297,7 +304,7 @@ export async function processPage (
 }
 
 /**
- * Process multiple pages with controlled concurrency
+ * Process multiple pages
  * @param pages Array of page information
  * @param token Confluence authentication token
  * @param options Processing options
@@ -308,7 +315,6 @@ export async function processPages (
   pages: Array<{ id: string; spaceKey: string; title: string }>,
   token: string,
   options: {
-    concurrency?: number;
     startDelay?: number;
     keepImages?: boolean;
     minQuestions?: number;
@@ -318,12 +324,11 @@ export async function processPages (
   progressCallback?: (pageId: string, progress: PipelineProgress) => void,
 ): Promise<PipelineResult[]> {
   const {
-    concurrency = 3,
-    startDelay = 100, // 100ms delay between starting tasks
-    batchSize = 50, // Max 50 pages per batch
+    startDelay = 5, // 100ms delay between starting tasks
+    batchSize = 100, // Max 50 pages per batch
   } = options;
 
-  console.log(`[Pipeline] Starting batch processing of ${pages.length} pages with concurrency ${concurrency} and batch size ${batchSize}`);
+  console.log(`[Pipeline] Starting batch processing of ${pages.length} pages`);
 
   // Split pages into batches of maximum 50 pages
   const batches: Array<Array<{ id: string; spaceKey: string; title: string }>> = [];
@@ -340,31 +345,24 @@ export async function processPages (
     const batch = batches[batchIndex];
     console.log(`[Pipeline] Processing batch ${batchIndex + 1}/${batches.length} with ${batch.length} pages`);
 
-    const limit = pLimit(concurrency);
-    const results: PipelineResult[] = [];
+    const processingPromises = batch.map(async (page, index) => {
+      // Stagger the start of each task
+      await new Promise(resolve => setTimeout(resolve, index * startDelay));
 
-    const processingPromises = batch.map((page, index) =>
-      limit(async () => {
-        // Stagger the start of each task
-        await new Promise(resolve => setTimeout(resolve, index * startDelay));
+      const globalIndex = batchIndex * batchSize + index + 1;
+      console.log(`[Pipeline] Starting page ${globalIndex}/${pages.length}: ${page.title}`);
 
-        const globalIndex = batchIndex * batchSize + index + 1;
-        console.log(`[Pipeline] Starting page ${globalIndex}/${pages.length}: ${page.title}`);
+      const result = await processPage(
+        page.id,
+        token,
+        options,
+        progressCallback ? (progress) => progressCallback(page.id, progress) : undefined,
+      );
 
-        const result = await processPage(
-          page.id,
-          token,
-          options,
-          progressCallback ? (progress) => progressCallback(page.id, progress) : undefined,
-        );
+      console.log(`[Pipeline] Completed page ${globalIndex}/${pages.length}: ${result.success ? 'SUCCESS' : 'FAILED'}`);
 
-        results.push(result);
-
-        console.log(`[Pipeline] Completed page ${globalIndex}/${pages.length}: ${result.success ? 'SUCCESS' : 'FAILED'}`);
-
-        return result;
-      }),
-    );
+      return result;
+    });
 
     const batchResults = await Promise.all(processingPromises);
     allResults.push(...batchResults);

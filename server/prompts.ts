@@ -1,4 +1,4 @@
-import { CHUNK_CHARS_LIMIT } from "./constants";
+import { CHUNK_CHARS_LIMIT, MAX_QUESTIONS, MIN_QUESTIONS } from "./constants";
 
 const LNG = `Весь текст переводи на РУССКИЙ язык`;
 
@@ -25,8 +25,8 @@ Therefore do the following:
 ${LNG}
 `;
 
-export const getPromptForQuestions = (minQuestions: number = 3, maxQuestions: number = 20, isContext: boolean = false) => {
-  const contextAdd = isContext ?  `- Look at the text in the ---CONTEXT---. Think about what else can refer to the context.
+export const getPromptForQuestions = (minQuestions: number = MIN_QUESTIONS, maxQuestions: number = MAX_QUESTIONS, isContext: boolean = false) => {
+  const contextAdd = isContext ? `- Look at the text in the ---CONTEXT---. Think about what else can refer to the context.
 - If you understand that this text can be interesting in the ---CONTEXT--- of another requested information, then add questions to that context.` : ''
 
   return `

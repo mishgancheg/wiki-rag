@@ -3,6 +3,7 @@ import { ChatCompletionCreateParamsBase } from "openai/resources/chat/completion
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions/completions";
 import { chatCompletionRequest, IChatCompletionAnswer } from "../llm/openai-chat.js";
 import { getPromptForQuestions } from "../prompts";
+import { MAX_QUESTIONS, MIN_QUESTIONS } from "../constants";
 
 // Interface for questions result
 export interface QuestionsResult {
@@ -30,8 +31,8 @@ export async function generateQuestionsForChunk (
   const startTime = Date.now();
 
   const {
-    minQuestions = 3,
-    maxQuestions = 20,
+    minQuestions = MIN_QUESTIONS,
+    maxQuestions = MAX_QUESTIONS,
     context = '',
   } = options;
 

@@ -121,6 +121,15 @@ class WikiRAGApp {
     if (this.token) {
       this.tokenInput.value = this.token;
     }
+    // Auto-load spaces on page load
+    if (this.token) {
+      // If token already known, load spaces immediately
+      this.loadSpaces();
+    } else {
+      // Prompt for token and auto-load after saving
+      this.pendingLoadSpaces = true;
+      this.showTokenDialog();
+    }
   }
 
   // Token modal helpers

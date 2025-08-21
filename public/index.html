@@ -42,13 +42,13 @@
                     <!-- Space Selection -->
                     <div class="form-group">
                         <div style="display: flex; gap: 0.5rem; align-items: center;">
-                            <button id="load-spaces-btn" class="btn">
-                                <span>Load Spaces</span>
-                                <div class="loading hidden"></div>
-                            </button>
                             <select id="space-select" class="form-control" disabled style="flex: 1;">
                                 <option value="">Select a space...</option>
                             </select>
+                            <button id="load-spaces-btn" class="btn" title="Refresh spaces" aria-label="Refresh spaces">
+                                <span aria-hidden="true">🔄</span>
+                                <div class="loading hidden"></div>
+                            </button>
                         </div>
                     </div>
 
@@ -95,7 +95,7 @@
                     </div>
 
                     <!-- Progress Bar -->
-                    <div class="progress-bar hidden" id="indexing-progress">
+                    <div class="progress-bar hidden" id="indexing-progress" title="Shows indexing progress: (Completed + Errors) / (Queued + Processing + Completed + Errors)" aria-label="Indexing progress: (Completed + Errors) divided by total (Queued + Processing + Completed + Errors)">
                         <div class="progress-fill" id="progress-fill"></div>
                     </div>
                 </div>
