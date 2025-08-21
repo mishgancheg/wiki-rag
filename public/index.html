@@ -20,7 +20,7 @@
             <div class="tabs">
                 <button class="tab active" onclick="switchTab('wiki-management')"><span class="tab-title">Wiki Indexing Management</span><span id="token-icon-btn" class="tab-icon-btn" title="Confluence Personal Access Token" aria-label="Confluence Personal Access Token" tabindex="0">🔑</span></button>
                 <button class="tab" onclick="switchTab('semantic-search')"><span class="tab-title">Semantic Search</span></button>
-                <button class="tab" onclick="switchTab('chat')">💬 Chat</button>
+                <button class="tab" onclick="switchTab('chat')"><span class="tab-title">💬 Chat</span><span id="clearBtn" class="tab-icon-btn" title="🧹 Очистить историю" aria-label="🧹 Очистить историю" tabindex="0">🧹</span></button>
                 <button class="tab" onclick="switchTab('swagger')">📘 Swagger</button>
             </div>
         </div>
@@ -54,9 +54,15 @@
 
                     <!-- Page Tree -->
                     <div class="form-group">
-                        <div class="page-tree" id="page-tree">
-                            <div style="text-align: center; color: #666; padding: 2rem;">
-                                Select a space to load pages
+                        <div class="page-tree" id="page-tree" style="position: relative;">
+                            <button id="expand-all-btn" class="btn btn-secondary hidden" title="Expand entire structure" aria-label="Expand entire structure" style="position: absolute; top: 8px; right: 8px; z-index: 1;">
+                                <span>Expand All</span>
+                                <div class="loading hidden"></div>
+                            </button>
+                            <div id="page-tree-items">
+                                <div style="text-align: center; color: #666; padding: 2rem;">
+                                    Select a space to load pages
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -156,16 +162,13 @@
                             <button id="sendBtn" class="btn btn-success send-btn">➤</button>
                         </div>
                     </div>
-                    <div style="text-align: center; margin-top: 1rem;">
-                        <button id="clearBtn" class="btn btn-secondary">🧹 Очистить историю</button>
-                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Swagger Tab -->
         <div id="swagger" class="tab-content">
-            <div class="panel" style="height: calc(100vh - 220px);">
+            <div class="panel" style="height: calc(100vh - 135px);">
                 <iframe src="/docs" title="Swagger UI" style="width: 100%; height: 100%; border: 0; background: #fff;"></iframe>
             </div>
         </div>

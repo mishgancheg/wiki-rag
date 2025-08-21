@@ -154,10 +154,22 @@ if (inputEl) {
     });
 }
 if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
+    const doClear = () => {
         history = [];
         render();
         inputEl && inputEl.focus();
+    };
+    clearBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        doClear();
+    });
+    clearBtn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            doClear();
+        }
     });
 }
 

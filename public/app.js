@@ -21,6 +21,7 @@ class WikiRAGApp {
     this.tokenInput = document.getElementById('confluence-token');
     this.spaceSelect = document.getElementById('space-select');
     this.pageTree = document.getElementById('page-tree');
+    this.pageTreeItems = document.getElementById('page-tree-items');
     this.pagePreview = document.getElementById('page-preview-content');
 
     // Buttons
@@ -31,6 +32,7 @@ class WikiRAGApp {
     this.indexDescendantsBtn = document.getElementById('index-descendants-btn');
     this.removeIndexBtn = document.getElementById('remove-index-btn');
     this.searchBtn = document.getElementById('search-btn');
+    this.expandAllBtn = document.getElementById('expand-all-btn');
 
     // Search elements
     this.searchQuery = document.getElementById('search-query');
@@ -89,6 +91,9 @@ class WikiRAGApp {
     this.indexDescendantsBtn.addEventListener('click', () => this.indexDescendants());
     this.removeIndexBtn.addEventListener('click', () => this.removeSelectedIndex());
     this.searchBtn.addEventListener('click', () => this.performSearch());
+    if (this.expandAllBtn) {
+      this.expandAllBtn.addEventListener('click', () => this.expandEntireTree());
+    }
 
     // Token modal events
     if (this.tokenIconBtn) {
@@ -261,7 +266,13 @@ class WikiRAGApp {
   async loadPages () {
     if (!this.selectedSpace) return;
 
-    this.pageTree.innerHTML = '<div style="text-align: center; padding: 1rem;">Loading pages...</div>';
+    if (this.pageTreeItems) {
+      this.pageTreeItems.innerHTML = '<div style="text-align: center; padding: 1rem;">Loading pages...</div>';
+    }
+    if (this.expandAllBtn) {
+      this.expandAllBtn.classList.add('hidden');
+      this.expandAllBtn.disabled = true;
+    }
 
     try {
       const pages = await this.makeRequest(`/api/wiki/pages?spaceKey=${this.selectedSpace}`);
@@ -286,18 +297,26 @@ class WikiRAGApp {
       // Enable action buttons
       this.selectAllBtn.disabled = false;
       this.deselectAllBtn.disabled = false;
+      if (this.expandAllBtn) {
+        // Show Expand All only if there are pages and at least one has children (i.e., there is a second level)
+        const showExpand = Array.isArray(pages) && pages.length > 0 && pages.some(p => p && p.hasChildren);
+        this.expandAllBtn.classList.toggle('hidden', !showExpand);
+        this.expandAllBtn.disabled = !showExpand;
+      }
 
       this.showAlert(`Loaded ${pages.length} pages successfully`);
 
     } catch (error) {
       console.error('Error loading pages:', error);
       this.showAlert(`Failed to load pages: ${error.message}`, 'error');
-      this.pageTree.innerHTML = '<div style="text-align: center; color: red; padding: 2rem;">Failed to load pages</div>';
+      if (this.pageTreeItems) {
+        this.pageTreeItems.innerHTML = '<div style="text-align: center; color: red; padding: 2rem;">Failed to load pages</div>';
+      }
     }
   }
 
   renderPageTree (pages, parentElement = null) {
-    const container = parentElement || this.pageTree;
+    const container = parentElement || this.pageTreeItems || this.pageTree;
 
     if (!parentElement) {
       container.innerHTML = '';
@@ -406,6 +425,28 @@ class WikiRAGApp {
     }
   }
 
+  async expandEntireTree () {
+    if (!this.pageTreeItems && !this.pageTree) return;
+    if (this.expandAllBtn) this.setLoading(this.expandAllBtn, true);
+    try {
+      // Find all top-level items (direct children of items container)
+      const container = this.pageTreeItems || this.pageTree;
+      const rootItems = Array.from(container.children).filter(el => el.classList && el.classList.contains('tree-item'));
+      for (const item of rootItems) {
+        const toggle = item.querySelector('button.tree-toggle');
+        if (toggle) {
+          const pageId = item.dataset.pageId;
+          await this.expandAllDescendants(pageId, toggle);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to expand entire tree:', e);
+      this.showAlert('Failed to expand entire tree', 'error');
+    } finally {
+      if (this.expandAllBtn) this.setLoading(this.expandAllBtn, false);
+    }
+  }
+
   async togglePageChildren (pageId, toggleButton) {
     const isExpanded = toggleButton.innerHTML === '▼';
 
@@ -469,13 +510,14 @@ class WikiRAGApp {
 
   selectPage (pageId) {
     // Remove previous selection
-    const previousSelected = this.pageTree.querySelector('.tree-item.selected');
+    const container = this.pageTreeItems || this.pageTree;
+    const previousSelected = container.querySelector('.tree-item.selected');
     if (previousSelected) {
       previousSelected.classList.remove('selected');
     }
 
     // Add current selection
-    const currentItem = this.pageTree.querySelector(`[data-page-id="${pageId}"]`);
+    const currentItem = container.querySelector(`[data-page-id="${pageId}"]`);
     if (currentItem) {
       currentItem.classList.add('selected');
     }
@@ -503,7 +545,8 @@ class WikiRAGApp {
   }
 
   selectAllPages () {
-    const checkboxes = this.pageTree.querySelectorAll('.tree-checkbox');
+    const container = this.pageTreeItems || this.pageTree;
+    const checkboxes = container.querySelectorAll('.tree-checkbox');
     checkboxes.forEach(checkbox => {
       checkbox.checked = true;
       const pageId = checkbox.closest('.tree-item').dataset.pageId;
@@ -513,7 +556,8 @@ class WikiRAGApp {
   }
 
   deselectAllPages () {
-    const checkboxes = this.pageTree.querySelectorAll('.tree-checkbox');
+    const container = this.pageTreeItems || this.pageTree;
+    const checkboxes = container.querySelectorAll('.tree-checkbox');
     checkboxes.forEach(checkbox => {
       checkbox.checked = false;
       const pageId = checkbox.closest('.tree-item').dataset.pageId;
