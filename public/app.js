@@ -1,619 +1,620 @@
 // Wiki-RAG Frontend Application
 class WikiRAGApp {
-    constructor() {
-        this.token = localStorage.getItem('confluenceToken') || '';
-        this.selectedSpace = null;
-        this.pages = new Map(); // pageId -> page data
-        this.selectedPages = new Set();
-        this.indexedPages = new Set();
-        this.currentPreviewPage = null;
-        // Indentation per level in the page tree (px)
-        this.indentPerLevel = 22;
+  constructor () {
+    this.token = localStorage.getItem('confluenceToken') || '';
+    this.selectedSpace = null;
+    this.pages = new Map(); // pageId -> page data
+    this.selectedPages = new Set();
+    this.indexedPages = new Set();
+    this.currentPreviewPage = null;
+    // Indentation per level in the page tree (px)
+    this.indentPerLevel = 22;
 
-        this.initializeElements();
-        this.attachEventListeners();
-        this.initializeApp();
-        this.startStatusPolling();
+    this.initializeElements();
+    this.attachEventListeners();
+    this.initializeApp();
+    this.startStatusPolling();
+  }
+
+  initializeElements () {
+    // Form elements
+    this.tokenInput = document.getElementById('confluence-token');
+    this.spaceSelect = document.getElementById('space-select');
+    this.pageTree = document.getElementById('page-tree');
+    this.pagePreview = document.getElementById('page-preview-content');
+
+    // Buttons
+    this.loadSpacesBtn = document.getElementById('load-spaces-btn');
+    this.selectAllBtn = document.getElementById('select-all-btn');
+    this.deselectAllBtn = document.getElementById('deselect-all-btn');
+    this.indexSelectedBtn = document.getElementById('index-selected-btn');
+    this.indexDescendantsBtn = document.getElementById('index-descendants-btn');
+    this.removeIndexBtn = document.getElementById('remove-index-btn');
+    this.searchBtn = document.getElementById('search-btn');
+
+    // Search elements
+    this.searchQuery = document.getElementById('search-query');
+    this.searchThreshold = document.getElementById('search-threshold');
+    this.searchLimit = document.getElementById('search-limit');
+    this.searchResults = document.getElementById('search-results');
+
+    // Status elements
+    this.statusQueued = document.getElementById('status-queued');
+    this.statusProcessing = document.getElementById('status-processing');
+    this.statusCompleted = document.getElementById('status-completed');
+    this.statusErrors = document.getElementById('status-errors');
+
+    // Progress elements
+    this.indexingProgress = document.getElementById('indexing-progress');
+    this.progressFill = document.getElementById('progress-fill');
+
+    // Alerts container
+    this.alertsContainer = document.getElementById('alerts-container');
+
+    // Token modal elements
+    this.tokenModal = document.getElementById('token-modal');
+    this.tokenModalInput = document.getElementById('token-modal-input');
+    this.tokenModalSave = document.getElementById('token-modal-save');
+    this.tokenModalCancel = document.getElementById('token-modal-cancel');
+    this.tokenIconBtn = document.getElementById('token-icon-btn');
+  }
+
+  attachEventListeners () {
+    // Token input
+    this.tokenInput.addEventListener('input', (e) => {
+      this.token = e.target.value.trim();
+      localStorage.setItem('confluenceToken', this.token);
+    });
+
+    // Space selection
+    this.spaceSelect.addEventListener('change', (e) => {
+      this.selectedSpace = e.target.value;
+      if (this.selectedSpace) {
+        this.loadPages();
+      }
+    });
+
+    // Button events
+    this.loadSpacesBtn.addEventListener('click', () => {
+      if (!this.token) {
+        this.pendingLoadSpaces = true;
+        this.showTokenDialog();
+        return;
+      }
+      this.loadSpaces();
+    });
+    this.selectAllBtn.addEventListener('click', () => this.selectAllPages());
+    this.deselectAllBtn.addEventListener('click', () => this.deselectAllPages());
+    this.indexSelectedBtn.addEventListener('click', () => this.indexSelectedPages());
+    this.indexDescendantsBtn.addEventListener('click', () => this.indexDescendants());
+    this.removeIndexBtn.addEventListener('click', () => this.removeSelectedIndex());
+    this.searchBtn.addEventListener('click', () => this.performSearch());
+
+    // Token modal events
+    if (this.tokenIconBtn) {
+      this.tokenIconBtn.addEventListener('click', () => this.showTokenDialog());
+    }
+    if (this.tokenModalSave) {
+      this.tokenModalSave.addEventListener('click', () => this.saveTokenFromDialog());
+    }
+    if (this.tokenModalCancel) {
+      this.tokenModalCancel.addEventListener('click', () => this.hideTokenDialog());
+    }
+    if (this.tokenModalInput) {
+      this.tokenModalInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          this.saveTokenFromDialog();
+        }
+      });
     }
 
-    initializeElements() {
-        // Form elements
-        this.tokenInput = document.getElementById('confluence-token');
-        this.spaceSelect = document.getElementById('space-select');
-        this.pageTree = document.getElementById('page-tree');
-        this.pagePreview = document.getElementById('page-preview-content');
+    // Search on Enter
+    this.searchQuery.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        this.performSearch();
+      }
+    });
+  }
 
-        // Buttons
-        this.loadSpacesBtn = document.getElementById('load-spaces-btn');
-        this.selectAllBtn = document.getElementById('select-all-btn');
-        this.deselectAllBtn = document.getElementById('deselect-all-btn');
-        this.indexSelectedBtn = document.getElementById('index-selected-btn');
-        this.indexDescendantsBtn = document.getElementById('index-descendants-btn');
-        this.removeIndexBtn = document.getElementById('remove-index-btn');
-        this.searchBtn = document.getElementById('search-btn');
+  initializeApp () {
+    // Set token from localStorage
+    if (this.token) {
+      this.tokenInput.value = this.token;
+    }
+  }
 
-        // Search elements
-        this.searchQuery = document.getElementById('search-query');
-        this.searchThreshold = document.getElementById('search-threshold');
-        this.searchLimit = document.getElementById('search-limit');
-        this.searchResults = document.getElementById('search-results');
+  // Token modal helpers
+  showTokenDialog () {
+    if (!this.tokenModal) return;
+    // Prefill from stored token
+    if (this.tokenModalInput) {
+      this.tokenModalInput.value = this.token || '';
+    }
+    this.tokenModal.classList.remove('hidden');
+    // Focus after render
+    setTimeout(() => { this.tokenModalInput && this.tokenModalInput.focus(); }, 0);
+  }
 
-        // Status elements
-        this.statusQueued = document.getElementById('status-queued');
-        this.statusProcessing = document.getElementById('status-processing');
-        this.statusCompleted = document.getElementById('status-completed');
-        this.statusErrors = document.getElementById('status-errors');
+  hideTokenDialog () {
+    if (!this.tokenModal) return;
+    this.tokenModal.classList.add('hidden');
+    this.pendingLoadSpaces = false;
+  }
 
-        // Progress elements
-        this.indexingProgress = document.getElementById('indexing-progress');
-        this.progressFill = document.getElementById('progress-fill');
+  saveTokenFromDialog () {
+    if (!this.tokenModalInput) return;
+    const value = this.tokenModalInput.value.trim();
+    this.token = value;
+    localStorage.setItem('confluenceToken', this.token);
+    if (this.tokenInput) {
+      this.tokenInput.value = this.token;
+    }
+    this.hideTokenDialog();
+    if (this.pendingLoadSpaces && this.token) {
+      const shouldLoad = true;
+      this.pendingLoadSpaces = false;
+      if (shouldLoad) {
+        this.loadSpaces();
+      }
+    }
+  }
 
-        // Alerts container
-        this.alertsContainer = document.getElementById('alerts-container');
+  // API Helper Methods
+  async makeRequest (url, options = {}) {
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
 
-        // Token modal elements
-        this.tokenModal = document.getElementById('token-modal');
-        this.tokenModalInput = document.getElementById('token-modal-input');
-        this.tokenModalSave = document.getElementById('token-modal-save');
-        this.tokenModalCancel = document.getElementById('token-modal-cancel');
-        this.tokenIconBtn = document.getElementById('token-icon-btn');
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    attachEventListeners() {
-        // Token input
-        this.tokenInput.addEventListener('input', (e) => {
-            this.token = e.target.value.trim();
-            localStorage.setItem('confluenceToken', this.token);
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Network error' }));
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  // UI Helper Methods
+  showAlert (message, type = 'success') {
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type}`;
+    alert.textContent = message;
+
+    this.alertsContainer.appendChild(alert);
+
+    setTimeout(() => {
+      alert.remove();
+    }, 5000);
+  }
+
+  setLoading (element, loading = true) {
+    const loadingSpinner = element.querySelector('.loading');
+    const textSpan = element.querySelector('span');
+
+    if (loadingSpinner) {
+      loadingSpinner.classList.toggle('hidden', !loading);
+    }
+
+    element.disabled = loading;
+  }
+
+  updateProgress (progress) {
+    if (progress === 0) {
+      this.indexingProgress.classList.add('hidden');
+    } else {
+      this.indexingProgress.classList.remove('hidden');
+      this.progressFill.style.width = `${progress}%`;
+    }
+  }
+
+  // Core Functionality
+  async loadSpaces () {
+    if (!this.token) {
+      this.showAlert('Please enter a Confluence token first', 'error');
+      return;
+    }
+
+    this.setLoading(this.loadSpacesBtn, true);
+
+    try {
+      const spaces = await this.makeRequest('/api/wiki/spaces');
+
+      // Clear and populate space select
+      this.spaceSelect.innerHTML = '<option value="">Select a space...</option>';
+
+      spaces.forEach(space => {
+        const option = document.createElement('option');
+        option.value = space.key;
+        option.textContent = `${space.name} (${space.key})`;
+        this.spaceSelect.appendChild(option);
+      });
+
+      this.spaceSelect.disabled = false;
+      this.showAlert(`Loaded ${spaces.length} spaces successfully`);
+
+    } catch (error) {
+      console.error('Error loading spaces:', error);
+      this.showAlert(`Failed to load spaces: ${error.message}`, 'error');
+    } finally {
+      this.setLoading(this.loadSpacesBtn, false);
+    }
+  }
+
+  async loadPages () {
+    if (!this.selectedSpace) return;
+
+    this.pageTree.innerHTML = '<div style="text-align: center; padding: 1rem;">Loading pages...</div>';
+
+    try {
+      const pages = await this.makeRequest(`/api/wiki/pages?spaceKey=${this.selectedSpace}`);
+
+      // Store pages data
+      pages.forEach(page => {
+        this.pages.set(page.id, page);
+      });
+
+      // Check which pages are already indexed
+      const pageIds = pages.map(p => p.id);
+      const indexedIds = await this.makeRequest('/api/indexed-ids', {
+        method: 'POST',
+        body: JSON.stringify({ ids: pageIds }),
+      });
+
+      this.indexedPages = new Set(indexedIds);
+
+      // Render page tree
+      this.renderPageTree(pages);
+
+      // Enable action buttons
+      this.selectAllBtn.disabled = false;
+      this.deselectAllBtn.disabled = false;
+
+      this.showAlert(`Loaded ${pages.length} pages successfully`);
+
+    } catch (error) {
+      console.error('Error loading pages:', error);
+      this.showAlert(`Failed to load pages: ${error.message}`, 'error');
+      this.pageTree.innerHTML = '<div style="text-align: center; color: red; padding: 2rem;">Failed to load pages</div>';
+    }
+  }
+
+  renderPageTree (pages, parentElement = null) {
+    const container = parentElement || this.pageTree;
+
+    if (!parentElement) {
+      container.innerHTML = '';
+    }
+
+    pages.forEach(page => {
+      const item = this.createTreeItem(page);
+      container.appendChild(item);
+    });
+  }
+
+  createTreeItem (page, level = 0) {
+    const isIndexed = this.indexedPages.has(page.id);
+    const item = document.createElement('div');
+    item.className = 'tree-item';
+    // store level and apply visual indentation to clearly show hierarchy
+    item.dataset.level = String(level);
+    // Use !important to override CSS .tree-item margin shorthand with !important
+    item.style.setProperty('margin-left', `${level * this.indentPerLevel - (isIndexed ? 4 : 0)}px`, 'important');
+    item.dataset.pageId = page.id;
+
+    if (isIndexed) {
+      item.classList.add('indexed');
+    }
+
+    // Toggle button for children
+    const toggle = document.createElement('button');
+    toggle.className = page.hasChildren ? 'tree-toggle' : 'tree-toggle-d';
+    toggle.innerHTML = page.hasChildren ? '▶' : '　';
+    toggle.disabled = !page.hasChildren;
+
+    if (page.hasChildren) {
+      toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.togglePageChildren(page.id, toggle);
+      });
+    }
+
+    // Checkbox
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'tree-checkbox';
+    checkbox.checked = this.selectedPages.has(page.id);
+    checkbox.addEventListener('change', (e) => {
+      e.stopPropagation();
+      if (e.target.checked) {
+        this.selectedPages.add(page.id);
+      } else {
+        this.selectedPages.delete(page.id);
+      }
+      this.updateActionButtons();
+    });
+
+    // Page title
+    const title = document.createElement('span');
+    title.textContent = page.title;
+    title.style.flex = '1';
+    title.addEventListener('click', () => {
+      this.selectPage(page.id);
+      this.loadPagePreview(page.id);
+    });
+
+    item.appendChild(toggle);
+    item.appendChild(checkbox);
+    item.appendChild(title);
+
+    return item;
+  }
+
+  async togglePageChildren (pageId, toggleButton) {
+    const isExpanded = toggleButton.innerHTML === '▼';
+
+    if (isExpanded) {
+      // Collapse - remove children
+      toggleButton.innerHTML = '▶';
+      let sibling = toggleButton.parentElement.nextElementSibling;
+      while (sibling && sibling.classList.contains('tree-children')) {
+        const toRemove = sibling;
+        sibling = sibling.nextElementSibling;
+        toRemove.remove();
+      }
+    } else {
+      // Expand - load children
+      toggleButton.innerHTML = '▼';
+
+      try {
+        const children = await this.makeRequest(`/api/wiki/children?parentId=${pageId}`);
+
+        // Store children data
+        children.forEach(child => {
+          this.pages.set(child.id, child);
         });
 
-        // Space selection
-        this.spaceSelect.addEventListener('change', (e) => {
-            this.selectedSpace = e.target.value;
-            if (this.selectedSpace) {
-                this.loadPages();
-            }
+        // Check indexed status for children
+        const childIds = children.map(c => c.id);
+        if (childIds.length > 0) {
+          const indexedIds = await this.makeRequest('/api/indexed-ids', {
+            method: 'POST',
+            body: JSON.stringify({ ids: childIds }),
+          });
+
+          indexedIds.forEach(id => this.indexedPages.add(id));
+        }
+
+        // Create children container
+        const childrenContainer = document.createElement('div');
+        childrenContainer.className = 'tree-children';
+
+        // use explicit dataset level instead of parsing styles
+        const parentLevel = parseInt(toggleButton.parentElement.dataset.level || '0', 10) || 0;
+
+        children.forEach(child => {
+          const childItem = this.createTreeItem(child, parentLevel + 1);
+          childrenContainer.appendChild(childItem);
         });
 
-        // Button events
-        this.loadSpacesBtn.addEventListener('click', () => {
-            if (!this.token) {
-                this.pendingLoadSpaces = true;
-                this.showTokenDialog();
-                return;
-            }
-            this.loadSpaces();
-        });
-        this.selectAllBtn.addEventListener('click', () => this.selectAllPages());
-        this.deselectAllBtn.addEventListener('click', () => this.deselectAllPages());
-        this.indexSelectedBtn.addEventListener('click', () => this.indexSelectedPages());
-        this.indexDescendantsBtn.addEventListener('click', () => this.indexDescendants());
-        this.removeIndexBtn.addEventListener('click', () => this.removeSelectedIndex());
-        this.searchBtn.addEventListener('click', () => this.performSearch());
+        // Insert after parent item
+        toggleButton.parentElement.parentNode.insertBefore(
+          childrenContainer,
+          toggleButton.parentElement.nextSibling,
+        );
 
-        // Token modal events
-        if (this.tokenIconBtn) {
-            this.tokenIconBtn.addEventListener('click', () => this.showTokenDialog());
-        }
-        if (this.tokenModalSave) {
-            this.tokenModalSave.addEventListener('click', () => this.saveTokenFromDialog());
-        }
-        if (this.tokenModalCancel) {
-            this.tokenModalCancel.addEventListener('click', () => this.hideTokenDialog());
-        }
-        if (this.tokenModalInput) {
-            this.tokenModalInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    this.saveTokenFromDialog();
-                }
-            });
-        }
+      } catch (error) {
+        console.error('Error loading children:', error);
+        this.showAlert(`Failed to load child pages: ${error.message}`, 'error');
+        toggleButton.innerHTML = '▶';
+      }
+    }
+  }
 
-        // Search on Enter
-        this.searchQuery.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.performSearch();
-            }
-        });
+  selectPage (pageId) {
+    // Remove previous selection
+    const previousSelected = this.pageTree.querySelector('.tree-item.selected');
+    if (previousSelected) {
+      previousSelected.classList.remove('selected');
     }
 
-    initializeApp() {
-        // Set token from localStorage
-        if (this.token) {
-            this.tokenInput.value = this.token;
-        }
+    // Add current selection
+    const currentItem = this.pageTree.querySelector(`[data-page-id="${pageId}"]`);
+    if (currentItem) {
+      currentItem.classList.add('selected');
     }
 
-    // Token modal helpers
-    showTokenDialog() {
-        if (!this.tokenModal) return;
-        // Prefill from stored token
-        if (this.tokenModalInput) {
-            this.tokenModalInput.value = this.token || '';
-        }
-        this.tokenModal.classList.remove('hidden');
-        // Focus after render
-        setTimeout(() => { this.tokenModalInput && this.tokenModalInput.focus(); }, 0);
-    }
+    this.currentPreviewPage = pageId;
+  }
 
-    hideTokenDialog() {
-        if (!this.tokenModal) return;
-        this.tokenModal.classList.add('hidden');
-        this.pendingLoadSpaces = false;
-    }
+  async loadPagePreview (pageId) {
+    this.pagePreview.innerHTML = '<div style="text-align: center; padding: 1rem;">Loading preview...</div>';
 
-    saveTokenFromDialog() {
-        if (!this.tokenModalInput) return;
-        const value = this.tokenModalInput.value.trim();
-        this.token = value;
-        localStorage.setItem('confluenceToken', this.token);
-        if (this.tokenInput) {
-            this.tokenInput.value = this.token;
-        }
-        this.hideTokenDialog();
-        if (this.pendingLoadSpaces && this.token) {
-            const shouldLoad = true;
-            this.pendingLoadSpaces = false;
-            if (shouldLoad) {
-                this.loadSpaces();
-            }
-        }
-    }
+    try {
+      const pageData = await this.makeRequest(`/api/wiki/page?id=${pageId}`);
 
-    // API Helper Methods
-    async makeRequest(url, options = {}) {
-        const headers = {
-            'Content-Type': 'application/json',
-            ...options.headers
-        };
-
-        if (this.token) {
-            headers['Authorization'] = `Bearer ${this.token}`;
-        }
-
-        const response = await fetch(url, {
-            ...options,
-            headers
-        });
-
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({ error: 'Network error' }));
-            throw new Error(error.error || `HTTP ${response.status}`);
-        }
-
-        return response.json();
-    }
-
-    // UI Helper Methods
-    showAlert(message, type = 'success') {
-        const alert = document.createElement('div');
-        alert.className = `alert alert-${type}`;
-        alert.textContent = message;
-
-        this.alertsContainer.appendChild(alert);
-
-        setTimeout(() => {
-            alert.remove();
-        }, 5000);
-    }
-
-    setLoading(element, loading = true) {
-        const loadingSpinner = element.querySelector('.loading');
-        const textSpan = element.querySelector('span');
-
-        if (loadingSpinner) {
-            loadingSpinner.classList.toggle('hidden', !loading);
-        }
-
-        element.disabled = loading;
-    }
-
-    updateProgress(progress) {
-        if (progress === 0) {
-            this.indexingProgress.classList.add('hidden');
-        } else {
-            this.indexingProgress.classList.remove('hidden');
-            this.progressFill.style.width = `${progress}%`;
-        }
-    }
-
-    // Core Functionality
-    async loadSpaces() {
-        if (!this.token) {
-            this.showAlert('Please enter a Confluence token first', 'error');
-            return;
-        }
-
-        this.setLoading(this.loadSpacesBtn, true);
-
-        try {
-            const spaces = await this.makeRequest('/api/wiki/spaces');
-
-            // Clear and populate space select
-            this.spaceSelect.innerHTML = '<option value="">Select a space...</option>';
-
-            spaces.forEach(space => {
-                const option = document.createElement('option');
-                option.value = space.key;
-                option.textContent = `${space.name} (${space.key})`;
-                this.spaceSelect.appendChild(option);
-            });
-
-            this.spaceSelect.disabled = false;
-            this.showAlert(`Loaded ${spaces.length} spaces successfully`);
-
-        } catch (error) {
-            console.error('Error loading spaces:', error);
-            this.showAlert(`Failed to load spaces: ${error.message}`, 'error');
-        } finally {
-            this.setLoading(this.loadSpacesBtn, false);
-        }
-    }
-
-    async loadPages() {
-        if (!this.selectedSpace) return;
-
-        this.pageTree.innerHTML = '<div style="text-align: center; padding: 1rem;">Loading pages...</div>';
-
-        try {
-            const pages = await this.makeRequest(`/api/wiki/pages?spaceKey=${this.selectedSpace}`);
-
-            // Store pages data
-            pages.forEach(page => {
-                this.pages.set(page.id, page);
-            });
-
-            // Check which pages are already indexed
-            const pageIds = pages.map(p => p.id);
-            const indexedIds = await this.makeRequest('/api/indexed-ids', {
-                method: 'POST',
-                body: JSON.stringify({ ids: pageIds })
-            });
-
-            this.indexedPages = new Set(indexedIds);
-
-            // Render page tree
-            this.renderPageTree(pages);
-
-            // Enable action buttons
-            this.selectAllBtn.disabled = false;
-            this.deselectAllBtn.disabled = false;
-
-            this.showAlert(`Loaded ${pages.length} pages successfully`);
-
-        } catch (error) {
-            console.error('Error loading pages:', error);
-            this.showAlert(`Failed to load pages: ${error.message}`, 'error');
-            this.pageTree.innerHTML = '<div style="text-align: center; color: red; padding: 2rem;">Failed to load pages</div>';
-        }
-    }
-
-    renderPageTree(pages, parentElement = null) {
-        const container = parentElement || this.pageTree;
-
-        if (!parentElement) {
-            container.innerHTML = '';
-        }
-
-        pages.forEach(page => {
-            const item = this.createTreeItem(page);
-            container.appendChild(item);
-        });
-    }
-
-    createTreeItem(page, level = 0) {
-        const item = document.createElement('div');
-        item.className = 'tree-item';
-        // store level and apply visual indentation to clearly show hierarchy
-        item.dataset.level = String(level);
-        // Use !important to override CSS .tree-item margin shorthand with !important
-        item.style.setProperty('margin-left', `${level * this.indentPerLevel}px`, 'important');
-        item.dataset.pageId = page.id;
-
-        if (this.indexedPages.has(page.id)) {
-            item.classList.add('indexed');
-        }
-
-        // Toggle button for children
-        const toggle = document.createElement('button');
-        toggle.className = 'tree-toggle';
-        toggle.innerHTML = page.hasChildren ? '▶' : '　';
-        toggle.disabled = !page.hasChildren;
-
-        if (page.hasChildren) {
-            toggle.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.togglePageChildren(page.id, toggle);
-            });
-        }
-
-        // Checkbox
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.className = 'tree-checkbox';
-        checkbox.checked = this.selectedPages.has(page.id);
-        checkbox.addEventListener('change', (e) => {
-            e.stopPropagation();
-            if (e.target.checked) {
-                this.selectedPages.add(page.id);
-            } else {
-                this.selectedPages.delete(page.id);
-            }
-            this.updateActionButtons();
-        });
-
-        // Page title
-        const title = document.createElement('span');
-        title.textContent = page.title;
-        title.style.flex = '1';
-        title.addEventListener('click', () => {
-            this.selectPage(page.id);
-            this.loadPagePreview(page.id);
-        });
-
-        item.appendChild(toggle);
-        item.appendChild(checkbox);
-        item.appendChild(title);
-
-        return item;
-    }
-
-    async togglePageChildren(pageId, toggleButton) {
-        const isExpanded = toggleButton.innerHTML === '▼';
-
-        if (isExpanded) {
-            // Collapse - remove children
-            toggleButton.innerHTML = '▶';
-            let sibling = toggleButton.parentElement.nextElementSibling;
-            while (sibling && sibling.classList.contains('tree-children')) {
-                const toRemove = sibling;
-                sibling = sibling.nextElementSibling;
-                toRemove.remove();
-            }
-        } else {
-            // Expand - load children
-            toggleButton.innerHTML = '▼';
-
-            try {
-                const children = await this.makeRequest(`/api/wiki/children?parentId=${pageId}`);
-
-                // Store children data
-                children.forEach(child => {
-                    this.pages.set(child.id, child);
-                });
-
-                // Check indexed status for children
-                const childIds = children.map(c => c.id);
-                if (childIds.length > 0) {
-                    const indexedIds = await this.makeRequest('/api/indexed-ids', {
-                        method: 'POST',
-                        body: JSON.stringify({ ids: childIds })
-                    });
-
-                    indexedIds.forEach(id => this.indexedPages.add(id));
-                }
-
-                // Create children container
-                const childrenContainer = document.createElement('div');
-                childrenContainer.className = 'tree-children';
-
-                // use explicit dataset level instead of parsing styles
-                const parentLevel = parseInt(toggleButton.parentElement.dataset.level || '0', 10) || 0;
-
-                children.forEach(child => {
-                    const childItem = this.createTreeItem(child, parentLevel + 1);
-                    childrenContainer.appendChild(childItem);
-                });
-
-                // Insert after parent item
-                toggleButton.parentElement.parentNode.insertBefore(
-                    childrenContainer,
-                    toggleButton.parentElement.nextSibling
-                );
-
-            } catch (error) {
-                console.error('Error loading children:', error);
-                this.showAlert(`Failed to load child pages: ${error.message}`, 'error');
-                toggleButton.innerHTML = '▶';
-            }
-        }
-    }
-
-    selectPage(pageId) {
-        // Remove previous selection
-        const previousSelected = this.pageTree.querySelector('.tree-item.selected');
-        if (previousSelected) {
-            previousSelected.classList.remove('selected');
-        }
-
-        // Add current selection
-        const currentItem = this.pageTree.querySelector(`[data-page-id="${pageId}"]`);
-        if (currentItem) {
-            currentItem.classList.add('selected');
-        }
-
-        this.currentPreviewPage = pageId;
-    }
-
-    async loadPagePreview(pageId) {
-        this.pagePreview.innerHTML = '<div style="text-align: center; padding: 1rem;">Loading preview...</div>';
-
-        try {
-            const pageData = await this.makeRequest(`/api/wiki/page?id=${pageId}`);
-
-            this.pagePreview.innerHTML = `
+      this.pagePreview.innerHTML = `
                 <h3>${pageData.title}</h3>
                 <div style="max-height: 300px; overflow-y: auto; border: 1px solid #eee; padding: 1rem; border-radius: 4px;">
                     ${pageData.html}
                 </div>
             `;
 
-        } catch (error) {
-            console.error('Error loading page preview:', error);
-            this.pagePreview.innerHTML = `<div style="color: red; text-align: center; padding: 2rem;">Failed to load preview: ${error.message}</div>`;
+    } catch (error) {
+      console.error('Error loading page preview:', error);
+      this.pagePreview.innerHTML = `<div style="color: red; text-align: center; padding: 2rem;">Failed to load preview: ${error.message}</div>`;
+    }
+  }
+
+  selectAllPages () {
+    const checkboxes = this.pageTree.querySelectorAll('.tree-checkbox');
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = true;
+      const pageId = checkbox.closest('.tree-item').dataset.pageId;
+      this.selectedPages.add(pageId);
+    });
+    this.updateActionButtons();
+  }
+
+  deselectAllPages () {
+    const checkboxes = this.pageTree.querySelectorAll('.tree-checkbox');
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = false;
+      const pageId = checkbox.closest('.tree-item').dataset.pageId;
+      this.selectedPages.delete(pageId);
+    });
+    this.updateActionButtons();
+  }
+
+  updateActionButtons () {
+    const hasSelection = this.selectedPages.size > 0;
+    this.indexSelectedBtn.disabled = !hasSelection;
+    this.indexDescendantsBtn.disabled = !hasSelection;
+    this.removeIndexBtn.disabled = !hasSelection;
+  }
+
+  async indexSelectedPages () {
+    if (this.selectedPages.size === 0) {
+      this.showAlert('Please select pages to index', 'warning');
+      return;
+    }
+
+    this.setLoading(this.indexSelectedBtn, true);
+    this.updateProgress(10);
+
+    try {
+      const selectedPageData = Array.from(this.selectedPages).map(id => {
+        const page = this.pages.get(id);
+        return {
+          id: page.id,
+          spaceKey: page.spaceKey || this.selectedSpace,
+          title: page.title,
+        };
+      });
+
+      const result = await this.makeRequest('/api/index', {
+        method: 'POST',
+        body: JSON.stringify({ pages: selectedPageData }),
+      });
+
+      this.showAlert(`Indexing started for ${selectedPageData.length} pages`);
+
+      // Mark pages as being processed
+      this.selectedPages.forEach(id => {
+        this.indexedPages.add(id);
+        const item = this.pageTree.querySelector(`[data-page-id="${id}"]`);
+        if (item) {
+          item.classList.add('indexed');
         }
+      });
+
+    } catch (error) {
+      console.error('Error starting indexing:', error);
+      this.showAlert(`Failed to start indexing: ${error.message}`, 'error');
+      this.updateProgress(0);
+    } finally {
+      this.setLoading(this.indexSelectedBtn, false);
+    }
+  }
+
+  async indexDescendants () {
+    this.showAlert('Index descendants functionality not yet implemented', 'warning');
+  }
+
+  async removeSelectedIndex () {
+    if (this.selectedPages.size === 0) {
+      this.showAlert('Please select pages to deindex', 'warning');
+      return;
     }
 
-    selectAllPages() {
-        const checkboxes = this.pageTree.querySelectorAll('.tree-checkbox');
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = true;
-            const pageId = checkbox.closest('.tree-item').dataset.pageId;
-            this.selectedPages.add(pageId);
-        });
-        this.updateActionButtons();
-    }
+    const confirmed = confirm(`Are you sure you want to remove indexing for ${this.selectedPages.size} selected pages?`);
+    if (!confirmed) return;
 
-    deselectAllPages() {
-        const checkboxes = this.pageTree.querySelectorAll('.tree-checkbox');
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = false;
-            const pageId = checkbox.closest('.tree-item').dataset.pageId;
-            this.selectedPages.delete(pageId);
-        });
-        this.updateActionButtons();
-    }
-
-    updateActionButtons() {
-        const hasSelection = this.selectedPages.size > 0;
-        this.indexSelectedBtn.disabled = !hasSelection;
-        this.indexDescendantsBtn.disabled = !hasSelection;
-        this.removeIndexBtn.disabled = !hasSelection;
-    }
-
-    async indexSelectedPages() {
-        if (this.selectedPages.size === 0) {
-            this.showAlert('Please select pages to index', 'warning');
-            return;
-        }
-
-        this.setLoading(this.indexSelectedBtn, true);
-        this.updateProgress(10);
-
+    try {
+      const promises = Array.from(this.selectedPages).map(async pageId => {
         try {
-            const selectedPageData = Array.from(this.selectedPages).map(id => {
-                const page = this.pages.get(id);
-                return {
-                    id: page.id,
-                    spaceKey: page.spaceKey || this.selectedSpace,
-                    title: page.title
-                };
-            });
+          await this.makeRequest(`/api/index/${pageId}`, {
+            method: 'DELETE',
+          });
 
-            const result = await this.makeRequest('/api/index', {
-                method: 'POST',
-                body: JSON.stringify({ pages: selectedPageData })
-            });
+          this.indexedPages.delete(pageId);
+          const item = this.pageTree.querySelector(`[data-page-id="${pageId}"]`);
+          if (item) {
+            item.classList.remove('indexed');
+          }
 
-            this.showAlert(`Indexing started for ${selectedPageData.length} pages`);
-
-            // Mark pages as being processed
-            this.selectedPages.forEach(id => {
-                this.indexedPages.add(id);
-                const item = this.pageTree.querySelector(`[data-page-id="${id}"]`);
-                if (item) {
-                    item.classList.add('indexed');
-                }
-            });
-
+          return { success: true, pageId };
         } catch (error) {
-            console.error('Error starting indexing:', error);
-            this.showAlert(`Failed to start indexing: ${error.message}`, 'error');
-            this.updateProgress(0);
-        } finally {
-            this.setLoading(this.indexSelectedBtn, false);
+          return { success: false, pageId, error: error.message };
         }
+      });
+
+      const results = await Promise.all(promises);
+      const successful = results.filter(r => r.success).length;
+      const failed = results.filter(r => !r.success).length;
+
+      if (successful > 0) {
+        this.showAlert(`Successfully removed indexing for ${successful} pages`);
+      }
+      if (failed > 0) {
+        this.showAlert(`Failed to remove indexing for ${failed} pages`, 'error');
+      }
+
+    } catch (error) {
+      console.error('Error removing index:', error);
+      this.showAlert(`Failed to remove indexing: ${error.message}`, 'error');
+    }
+  }
+
+  async performSearch () {
+    const query = this.searchQuery.value.trim();
+    if (!query) {
+      this.showAlert('Please enter a search query', 'warning');
+      return;
     }
 
-    async indexDescendants() {
-        this.showAlert('Index descendants functionality not yet implemented', 'warning');
+    const threshold = parseFloat(this.searchThreshold.value);
+    const limit = parseInt(this.searchLimit.value);
+
+    this.setLoading(this.searchBtn, true);
+    this.searchResults.innerHTML = '<div style="text-align: center; padding: 1rem;">Searching...</div>';
+
+    try {
+      const results = await this.makeRequest('/api/rag/search', {
+        method: 'POST',
+        body: JSON.stringify({
+          query,
+          threshold,
+          chunksLimit: limit,
+        }),
+      });
+
+      this.displaySearchResults(results);
+
+    } catch (error) {
+      console.error('Error performing search:', error);
+      this.showAlert(`Search failed: ${error.message}`, 'error');
+      this.searchResults.innerHTML = '<div style="color: red; text-align: center; padding: 2rem;">Search failed</div>';
+    } finally {
+      this.setLoading(this.searchBtn, false);
+    }
+  }
+
+  displaySearchResults (results) {
+    if (!results.results || results.results.length === 0) {
+      this.searchResults.innerHTML = '<div style="text-align: center; color: #666; padding: 2rem;">No results found</div>';
+      return;
     }
 
-    async removeSelectedIndex() {
-        if (this.selectedPages.size === 0) {
-            this.showAlert('Please select pages to deindex', 'warning');
-            return;
-        }
-
-        const confirmed = confirm(`Are you sure you want to remove indexing for ${this.selectedPages.size} selected pages?`);
-        if (!confirmed) return;
-
-        try {
-            const promises = Array.from(this.selectedPages).map(async pageId => {
-                try {
-                    await this.makeRequest(`/api/index/${pageId}`, {
-                        method: 'DELETE'
-                    });
-
-                    this.indexedPages.delete(pageId);
-                    const item = this.pageTree.querySelector(`[data-page-id="${pageId}"]`);
-                    if (item) {
-                        item.classList.remove('indexed');
-                    }
-
-                    return { success: true, pageId };
-                } catch (error) {
-                    return { success: false, pageId, error: error.message };
-                }
-            });
-
-            const results = await Promise.all(promises);
-            const successful = results.filter(r => r.success).length;
-            const failed = results.filter(r => !r.success).length;
-
-            if (successful > 0) {
-                this.showAlert(`Successfully removed indexing for ${successful} pages`);
-            }
-            if (failed > 0) {
-                this.showAlert(`Failed to remove indexing for ${failed} pages`, 'error');
-            }
-
-        } catch (error) {
-            console.error('Error removing index:', error);
-            this.showAlert(`Failed to remove indexing: ${error.message}`, 'error');
-        }
-    }
-
-    async performSearch() {
-        const query = this.searchQuery.value.trim();
-        if (!query) {
-            this.showAlert('Please enter a search query', 'warning');
-            return;
-        }
-
-        const threshold = parseFloat(this.searchThreshold.value);
-        const limit = parseInt(this.searchLimit.value);
-
-        this.setLoading(this.searchBtn, true);
-        this.searchResults.innerHTML = '<div style="text-align: center; padding: 1rem;">Searching...</div>';
-
-        try {
-            const results = await this.makeRequest('/api/rag/search', {
-                method: 'POST',
-                body: JSON.stringify({
-                    query,
-                    threshold,
-                    chunksLimit: limit
-                })
-            });
-
-            this.displaySearchResults(results);
-
-        } catch (error) {
-            console.error('Error performing search:', error);
-            this.showAlert(`Search failed: ${error.message}`, 'error');
-            this.searchResults.innerHTML = '<div style="color: red; text-align: center; padding: 2rem;">Search failed</div>';
-        } finally {
-            this.setLoading(this.searchBtn, false);
-        }
-    }
-
-    displaySearchResults(results) {
-        if (!results.results || results.results.length === 0) {
-            this.searchResults.innerHTML = '<div style="text-align: center; color: #666; padding: 2rem;">No results found</div>';
-            return;
-        }
-
-        const resultsHtml = results.results.map(result => `
+    const resultsHtml = results.results.map(result => `
             <div class="search-result">
                 <div class="similarity">${(result.similarity * 100).toFixed(1)}%</div>
                 <h4>Wiki ID: ${result.wiki_id}</h4>
@@ -626,7 +627,7 @@ class WikiRAGApp {
             </div>
         `).join('');
 
-        const statsHtml = `
+    const statsHtml = `
             <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.9rem;">
                 <strong>Search Results:</strong> ${results.total_results} results found
                 ${results.processing_time_ms ? ` | Processing time: ${results.processing_time_ms}ms` : ''}
@@ -635,49 +636,49 @@ class WikiRAGApp {
             </div>
         `;
 
-        this.searchResults.innerHTML = statsHtml + resultsHtml;
-    }
+    this.searchResults.innerHTML = statsHtml + resultsHtml;
+  }
 
-    async updateStatus() {
-        try {
-            const status = await this.makeRequest('/api/status');
+  async updateStatus () {
+    try {
+      const status = await this.makeRequest('/api/status');
 
-            this.statusQueued.textContent = status.queued || 0;
-            this.statusProcessing.textContent = status.processing || 0;
-            this.statusCompleted.textContent = status.completed || 0;
-            this.statusErrors.textContent = status.errors || 0;
+      this.statusQueued.textContent = status.queued || 0;
+      this.statusProcessing.textContent = status.processing || 0;
+      this.statusCompleted.textContent = status.completed || 0;
+      this.statusErrors.textContent = status.errors || 0;
 
-            // Update progress bar based on processing status
-            const total = (status.queued || 0) + (status.processing || 0) + (status.completed || 0) + (status.errors || 0);
-            if (total > 0) {
-                const progress = ((status.completed || 0) + (status.errors || 0)) / total * 100;
-                this.updateProgress(progress);
+      // Update progress bar based on processing status
+      const total = (status.queued || 0) + (status.processing || 0) + (status.completed || 0) + (status.errors || 0);
+      if (total > 0) {
+        const progress = ((status.completed || 0) + (status.errors || 0)) / total * 100;
+        this.updateProgress(progress);
 
-                if (progress >= 100) {
-                    setTimeout(() => this.updateProgress(0), 2000);
-                }
-            }
-
-        } catch (error) {
-            // Silently fail status updates
-            console.debug('Status update failed:', error.message);
+        if (progress >= 100) {
+          setTimeout(() => this.updateProgress(0), 2000);
         }
-    }
+      }
 
-    startStatusPolling() {
-        // Update status immediately
-        this.updateStatus();
-
-        // Then update every 5 seconds
-        setInterval(() => {
-            this.updateStatus();
-        }, 5000);
+    } catch (error) {
+      // Silently fail status updates
+      console.debug('Status update failed:', error.message);
     }
+  }
+
+  startStatusPolling () {
+    // Update status immediately
+    this.updateStatus();
+
+    // Then update every 5 seconds
+    setInterval(() => {
+      this.updateStatus();
+    }, 5000);
+  }
 }
 
 // Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    window.wikiRAGApp = new WikiRAGApp();
+  window.wikiRAGApp = new WikiRAGApp();
 });
 
 // Export for potential module use
