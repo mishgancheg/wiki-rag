@@ -1,7 +1,10 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
 import { config, validateConfig } from './config.js';
-import { initializePool, closePool } from './db.js';
+import { initializePool, closePool, getIndexedWikiIds, deleteByWikiId } from './db.js';
+import { fetchSpaces, fetchPagesBySpace, fetchChildren, fetchPageHtml } from './confluence.js';
+import { processPages } from './pipeline.js';
+import { ragSearch } from './rag.js';
 
 // Validate configuration on startup
 validateConfig();
@@ -58,7 +61,6 @@ app.get('/api/wiki/spaces', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Authorization token required' });
     }
 
-    const { fetchSpaces } = await import('./confluence.js');
     const spaces = await fetchSpaces(token);
     res.json(spaces);
   } catch (error) {
@@ -79,7 +81,6 @@ app.get('/api/wiki/pages', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'spaceKey parameter required' });
     }
 
-    const { fetchPagesBySpace } = await import('./confluence.js');
     const pages = await fetchPagesBySpace(token, spaceKey as string);
     res.json(pages);
   } catch (error) {
@@ -100,7 +101,6 @@ app.get('/api/wiki/children', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'parentId parameter required' });
     }
 
-    const { fetchChildren } = await import('./confluence.js');
     const children = await fetchChildren(token, parentId as string);
     res.json(children);
   } catch (error) {
@@ -121,7 +121,6 @@ app.get('/api/wiki/page', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'id parameter required' });
     }
 
-    const { fetchPageHtml } = await import('./confluence.js');
     const pageContent = await fetchPageHtml(token, id as string);
     res.json({ title: pageContent.title, html: pageContent.html });
   } catch (error) {
@@ -139,7 +138,6 @@ app.post('/api/indexed-ids', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'ids array required' });
     }
 
-    const { getIndexedWikiIds } = await import('./db.js');
     const indexedIds = await getIndexedWikiIds(ids);
     res.json(indexedIds);
   } catch (error) {
@@ -184,7 +182,6 @@ app.post('/api/index', async (req: Request, res: Response) => {
     }
 
     // Process tasks with pipeline
-    const { processPages } = await import('./pipeline.js');
 
     // Start processing in background
     processPages(pages, token, {
@@ -224,7 +221,6 @@ app.delete('/api/index/:id', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Page ID required' });
     }
 
-    const { deleteByWikiId } = await import('./db.js');
     await deleteByWikiId(id);
 
     res.json({
@@ -256,54 +252,11 @@ app.get('/api/status', (req: Request, res: Response) => {
 app.post('/api/rag/search', async (req: Request, res: Response) => {
   try {
     const { query, threshold = 0.65, chunksLimit = 10 } = req.body;
-
-    if (!query || typeof query !== 'string') {
-      return res.status(400).json({ error: 'query string required' });
-    }
-
-    if (typeof threshold !== 'number' || threshold < 0 || threshold > 1) {
-      return res.status(400).json({ error: 'threshold must be a number between 0 and 1' });
-    }
-
-    if (typeof chunksLimit !== 'number' || chunksLimit < 1 || chunksLimit > 100) {
-      return res.status(400).json({ error: 'chunksLimit must be a number between 1 and 100' });
-    }
-
-    const { getEmbeddingForText } = await import('./embeddings.js');
-    const { searchSimilar, getChunksByIds } = await import('./db.js');
-
-    // Generate embedding for the search query
-    const queryEmbeddingResult = await getEmbeddingForText(query);
-
-    // Search for similar chunks and questions
-    const searchResults = await searchSimilar(
-      queryEmbeddingResult.embedding,
-      threshold,
-      chunksLimit,
-    );
-
-    // searchResults already contains unique chunk_ids and is limited to chunksLimit
-    // Format results to match expected API response
-    const results = searchResults.map(result => ({
-      chunk_id: result.chunk_id,
-      wiki_id: result.wiki_id,
-      text: result.text,
-      similarity: result.cs, // cs is the cosine similarity from the new implementation
-      source: 'chunk', // Since we return unique chunks, source is always 'chunk'
-    }));
-
-    res.json({
-      query,
-      results,
-      total_results: results.length,
-      threshold,
-      processing_time_ms: queryEmbeddingResult.processingTime,
-      tokens_used: queryEmbeddingResult.totalTokens,
-      estimated_cost: queryEmbeddingResult.totalCost,
-    });
+    const result = await ragSearch({ query, threshold, chunksLimit });
+    res.json(result);
   } catch (error) {
     console.error('Error in RAG search:', error);
-    res.status(500).json({ error: 'Failed to perform search' });
+    res.status(400).json({ error: (error as Error).message || 'Failed to perform search' });
   }
 });
 

@@ -1,12 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="start" type="js.build_tools.npm" nameIsGenerated="true">
-    <package-json value="$PROJECT_DIR$/package.json" />
-    <command value="run" />
-    <scripts>
-      <script value="start" />
-    </scripts>
-    <node-interpreter value="project" />
-    <envs />
+  <configuration default="false" name="START" type="NodeJSConfigurationType" path-to-js-file="dist/server.js" working-dir="$PROJECT_DIR$">
     <method v="2" />
   </configuration>
 </component>

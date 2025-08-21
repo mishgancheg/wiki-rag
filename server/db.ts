@@ -1,4 +1,4 @@
-import { Pool, Client, PoolClient } from 'pg';
+import { Pool, PoolClient } from 'pg';
 import { config } from './config.js';
 import pgvector from 'pgvector/pg';
 
@@ -72,15 +72,6 @@ export interface ChunkRecord {
   updated_at: Date;
 }
 
-export interface QuestionRecord {
-  question_id: number;
-  chunk_id: number;
-  wiki_id: string;
-  text: string;
-  embedding: number[];
-  updated_at: Date;
-}
-
 // Insert chunk with embedding
 export async function insertChunk(
   wikiId: string,
@@ -132,20 +123,22 @@ export async function searchSimilar(
   queryEmbedding: number[],
   threshold: number = 0.65,
   chunksLimit: number = 10
-): Promise<Array<{ chunk_id: number; wiki_id: string; text: string; cs: number }>> {
+): Promise<Array<{ chunk_id: number; wiki_id: string; question: string | null; chunk: string; cs: number }>> {
   const pool = getPool();
 
   const embeddingStr = `[${queryEmbedding.join(',')}]`;
 
   // 1) Execute search on wiki_rag.question table
   const questionResult = await pool.query(`
-    SELECT 
-      chunk_id,
-      wiki_id,
-      text,
-      (embedding <=> $1)::real as "cs"
-    FROM wiki_rag.question
-    WHERE (embedding <=> $1) <= $2
+    SELECT
+      Q.chunk_id,
+      Q.wiki_id,
+      Q.text AS "question",
+      C.text AS "chunk",
+      (Q.embedding <=> $1)::real as "cs"
+    FROM wiki_rag.question AS Q
+    JOIN wiki_rag.chunk AS C ON Q.chunk_id = C.chunk_id
+    WHERE (Q.embedding <=> $1) <= $2
     ORDER BY "cs"
   `, [embeddingStr, threshold]);
 
@@ -154,7 +147,8 @@ export async function searchSimilar(
     SELECT 
       chunk_id,
       wiki_id,
-      text,
+      null as "question",
+      text as chunk,
       ("embedding" <=> $1)::real AS "cs"
     FROM wiki_rag.chunk
     WHERE (embedding <=> $1) <= $2
@@ -165,7 +159,7 @@ export async function searchSimilar(
   const allResults = [...questionResult.rows, ...chunkResult.rows];
 
   // Create a map to store the best similarity for each unique chunk_id
-  const chunkMap = new Map<number, { chunk_id: number; wiki_id: string; text: string; cs: number }>();
+  const chunkMap = new Map<number, { chunk_id: number; wiki_id: string; question: string | null; chunk: string; cs: number }>();
 
   for (const row of allResults) {
     const existing = chunkMap.get(row.chunk_id);
@@ -173,7 +167,8 @@ export async function searchSimilar(
       chunkMap.set(row.chunk_id, {
         chunk_id: row.chunk_id,
         wiki_id: row.wiki_id,
-        text: row.text,
+        question: row.question,
+        chunk: row.chunk,
         cs: row.cs
       });
     }

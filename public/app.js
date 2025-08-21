@@ -621,7 +621,7 @@ class WikiRAGApp {
                     Source: ${result.source} | Chunk ID: ${result.chunk_id}
                 </p>
                 <div style="white-space: pre-wrap; font-family: monospace; background: #f8f9fa; padding: 0.5rem; border-radius: 4px; font-size: 0.9rem;">
-                    ${result.text.substring(0, 300)}${result.text.length > 300 ? '...' : ''}
+                    ${result.chunk.substring(0, 300)}${result.chunk.length > 300 ? '...' : ''}
                 </div>
             </div>
         `).join('');
