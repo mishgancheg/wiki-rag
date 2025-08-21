@@ -430,7 +430,7 @@ body {
 .chat-wrapper {
   display: flex;
   flex-direction: column;
-  height: 70vh;
+  height: 100%;
   max-width: 900px;
   margin: 0 auto;
 }
@@ -628,4 +628,9 @@ textarea {
   display: flex;
   gap: 0.5rem;
   justify-content: flex-end;
+}
+
+/* Make chat tab fill remaining viewport height under header */
+#chat .panel {
+  height: calc(100vh - 135px);
 }

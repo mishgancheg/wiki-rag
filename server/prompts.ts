@@ -8,7 +8,7 @@ You are an expert assistant specializing in high-quality text chunking for use i
 Your task is to analyze the provided content and split it into **meaningful and logically connected chunks**, suitable for indexing and retrieval in RAG pipelines.
 
 **Chunk requirements:**
-- Break content into chunks that do not exceed ${CHUNK_CHARS_LIMIT} characters.
+- Break content into chunks that do not exceed ${CHUNK_CHARS_LIMIT} characters. But if the size of the total content is up to ${CHUNK_CHARS_LIMIT * 1.5} characters, then you can not break it into pieces
 - Each chunk must preserve the **original text exactly**, with no omissions, reductions, or paraphrasing.
 - Preserve all formatting.
 - Each chunk should be **cohesive** and **self-contained**, meaning it should make sense and be interpretable on its own.
@@ -55,9 +55,9 @@ ${LNG}
 export const INTENT_DETECTOR_PROMPT = `
 Ниже следует переписка пользователя (user) с чат-ботом (assistant).
 Проанализируй всю переписку и найди смысл последней темы или последнего намерения пользователя.
---- ИСТОРИЯ ПЕЕРПИСКИ ---
+--- ИСТОРИЯ ПЕРЕПИСКИ ---
 {{messageHistory}}
---- КОНЕЦ ИСТОРИи ПЕЕРПИСКИ ---
+--- КОНЕЦ ИСТОРИИ ПЕРЕПИСКИ ---
 Заполни все свойства указанной JSON-структуры.
 `;
 
@@ -71,6 +71,7 @@ export const getChatRagPrompt = () => `
 - Если фрагменты противоречивы — укажи это и выбери наиболее вероятное по контексту.
 - Добавляй ссылку на источники только если они явно представлены во фрагментах.
 - Пиши дружелюбно и профессионально. Избегай домыслов.
+- В каждом фрагменте есть заголовок страницы источника и ссылка на ее. Указывай их в ответах.
 
 Формат вспомогательных данных:
 ---RAG-CHUNKS---
