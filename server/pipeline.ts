@@ -5,6 +5,7 @@ import { splitIntoChunks, addSourceMetadata } from './chunker/splitIntoChunks.js
 import { generateQuestionsForChunk } from './chunker/questions.js';
 import { getEmbeddingsForTexts } from './embeddings.js';
 import { insertChunk, insertQuestion, deleteByWikiId } from './db.js';
+import * as cheerio from 'cheerio';
 
 // Interface for pipeline result
 export interface PipelineResult {
@@ -46,6 +47,17 @@ export async function processPage (
   } = {},
   progressCallback?: (progress: PipelineProgress) => void,
 ): Promise<PipelineResult> {
+  // Helper: convert cleaned HTML chunk to plain text for embeddings
+  const stripHtmlToText = (html: string): string => {
+    try {
+      const $ = cheerio.load(html, { xmlMode: false });
+      const text = $.root().text();
+      return text.replace(/\s+/g, ' ').trim();
+    } catch {
+      // Fallback: naive tag removal
+      return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+  };
   const startTime = Date.now();
   let totalTokens = 0;
   let totalCost = 0;
@@ -142,7 +154,7 @@ export async function processPage (
 
           chunkData[index] = {
             chunkText: chunksWithMetadata[index],
-            embeddingText: chunk, // Use original chunk without metadata for embedding
+            embeddingText: stripHtmlToText(chunk), // Plain text for embedding (HTML stripped)
             questions: questionsResult.questions,
             chunkTokens: questionsResult.totalTokens || 0,
             chunkCost: questionsResult.totalCost || 0,
@@ -154,7 +166,7 @@ export async function processPage (
           // Continue with empty questions for this chunk
           chunkData[index] = {
             chunkText: chunksWithMetadata[index],
-            embeddingText: chunk,
+            embeddingText: stripHtmlToText(chunk),
             questions: [],
             chunkTokens: 0,
             chunkCost: 0,
