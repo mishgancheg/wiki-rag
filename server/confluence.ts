@@ -311,6 +311,11 @@ export async function fetchPageHtml (token: string, pageId: string): Promise<Con
   return client.getPageContent(pageId);
 }
 
+export async function fetchDescendants (token: string, pageId: string, maxDepth: number = 10): Promise<ConfluencePage[]> {
+  const client = new ConfluenceClient(token);
+  return client.getDescendants(pageId, maxDepth);
+}
+
 export async function validateToken (token: string): Promise<boolean> {
   const client = new ConfluenceClient(token);
   return client.testConnection();

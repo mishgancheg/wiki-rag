@@ -488,7 +488,7 @@ class WikiRAGApp {
     }
 
     this.setLoading(this.indexSelectedBtn, true);
-    this.updateProgress(10);
+    this.updateProgress(1);
 
     try {
       const selectedPageData = Array.from(this.selectedPages).map(id => {
@@ -526,7 +526,46 @@ class WikiRAGApp {
   }
 
   async indexDescendants () {
-    this.showAlert('Index descendants functionality not yet implemented', 'warning');
+    if (this.selectedPages.size === 0) {
+      this.showAlert('Please select at least one page to index its descendants', 'warning');
+      return;
+    }
+
+    const roots = Array.from(this.selectedPages).map(id => {
+      const page = this.pages.get(id);
+      return {
+        id: page.id,
+        spaceKey: page.spaceKey || this.selectedSpace,
+        title: page.title,
+      };
+    });
+
+    this.setLoading(this.indexDescendantsBtn, true);
+    this.updateProgress(1);
+
+    try {
+      const result = await this.makeRequest('/api/index/descendants', {
+        method: 'POST',
+        body: JSON.stringify({ roots }),
+      });
+
+      const count = result.pagesCount ?? roots.length;
+      this.showAlert(`Indexing descendants started (queued ${count} pages)`);
+
+      // Mark the selected roots as indexed in UI immediately
+      this.selectedPages.forEach(id => {
+        this.indexedPages.add(id);
+        const item = this.pageTree.querySelector(`[data-page-id="${id}"]`);
+        if (item) item.classList.add('indexed');
+      });
+
+    } catch (error) {
+      console.error('Error starting descendants indexing:', error);
+      this.showAlert(`Failed to start indexing descendants: ${error.message}`, 'error');
+      this.updateProgress(0);
+    } finally {
+      this.setLoading(this.indexDescendantsBtn, false);
+    }
   }
 
   async removeSelectedIndex () {

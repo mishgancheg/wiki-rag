@@ -7,6 +7,7 @@ import { processPages } from './pipeline.js';
 import { ragSearch } from './rag.js';
 import { handleChatRequest } from './chat.js';
 import swaggerUi from 'swagger-ui-express';
+import { createIndexDescendantsHandler } from './api/index-descendants.js';
 
 // Validate configuration on startup
 validateConfig();
@@ -227,6 +228,8 @@ app.post('/api/index', async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to start indexing' });
   }
 });
+
+app.post('/api/index/descendants', createIndexDescendantsHandler({ getAuthToken, indexingTasks, taskQueue }));
 
 app.delete('/api/index/:id', async (req: Request, res: Response) => {
   try {
