@@ -113,9 +113,9 @@ export async function insertQuestion(
 // Delete chunks and questions by wiki_id
 export async function deleteByWikiId(wikiId: string): Promise<void> {
   const pool = getPool();
-
-  // Questions will be deleted automatically due to CASCADE foreign key
   await pool.query('DELETE FROM wiki_rag.chunk WHERE wiki_id = $1', [wikiId]);
+  await pool.query('DELETE FROM wiki_rag.question WHERE wiki_id = $1', [wikiId]);
+  console.log(`Deleted chunks and questions for wiki_id: ${wikiId}`);
 }
 
 // Search similar chunks and questions
