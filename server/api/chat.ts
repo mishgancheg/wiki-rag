@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
-import { config } from './config.js';
-import { ragSearch } from './rag.js';
-import { INTENT_DETECTOR_PROMPT, getChatRagPrompt } from './prompts.js';
-import { chatCompletionRequest } from './llm/openai-chat.js';
+import { config } from '../config';
+import { ragSearch } from './rag';
+import { INTENT_DETECTOR_PROMPT, getChatRagPrompt } from '../prompts';
+import { chatCompletionRequest } from '../llm/openai-chat';
 
 /**
  * Chat endpoint handler: intent -> rag -> answer

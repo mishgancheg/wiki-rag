@@ -1,25 +1,15 @@
 import { Request, Response } from 'express';
-import { fetchDescendants } from '../confluence.js';
-import { processPages } from '../pipeline.js';
-
-// Local copy of IndexingTask to avoid circular deps
-interface IndexingTask {
-  id: string;
-  pageId: string;
-  status: 'queued' | 'processing' | 'completed' | 'error';
-  error?: string;
-  progress?: number;
-}
+import { fetchDescendants } from '../../confluence';
+import { processPages } from './pipeline';
+import { IndexingTask, indexingTasks, taskQueue } from './index';
 
 interface HandlerDeps {
   getAuthToken: (req: Request) => string | null;
-  indexingTasks: Map<string, IndexingTask>;
-  taskQueue: IndexingTask[];
 }
 
 // Factory to create the descendants indexing handler with injected dependencies
 export function createIndexDescendantsHandler (deps: HandlerDeps) {
-  const { getAuthToken, indexingTasks, taskQueue } = deps;
+  const { getAuthToken } = deps;
 
   return async function indexDescendantsHandler (req: Request, res: Response) {
     try {

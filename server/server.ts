@@ -3,11 +3,11 @@ import path from 'path';
 import { config, validateConfig } from './config.js';
 import { initializePool, closePool, getIndexedWikiIds, deleteByWikiId } from './db.js';
 import { fetchSpaces, fetchPagesBySpace, fetchChildren, fetchPageHtml } from './confluence.js';
-import { processPages } from './pipeline.js';
-import { ragSearch } from './rag.js';
-import { handleChatRequest } from './chat.js';
+import { ragSearch } from './api/rag';
+import { handleChatRequest } from './api/chat';
 import swaggerUi from 'swagger-ui-express';
-import { createIndexDescendantsHandler } from './api/index-descendants.js';
+import { createIndexDescendantsHandler } from './api/indexing/index-descendants';
+import { createIndexHandler, statusHandler } from './api/indexing';
 
 // Validate configuration on startup
 validateConfig();
@@ -31,21 +31,9 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(undefined, {
     displayRequestDuration: true,
     tryItOutEnabled: true,
     filter: true,
-    showExtensions: true
-  }
+    showExtensions: true,
+  },
 }));
-
-// Store for tracking indexing progress
-interface IndexingTask {
-  id: string;
-  pageId: string;
-  status: 'queued' | 'processing' | 'completed' | 'error';
-  error?: string;
-  progress?: number;
-}
-
-const indexingTasks = new Map<string, IndexingTask>();
-const taskQueue: IndexingTask[] = [];
 
 // Helper to get Authorization header (Confluence token)
 function getAuthToken (req: Request): string | null {
@@ -163,73 +151,9 @@ app.post('/api/indexed-ids', async (req: Request, res: Response) => {
 });
 
 // Indexing endpoints
-app.post('/api/index', async (req: Request, res: Response) => {
-  try {
-    const token = getAuthToken(req);
-    if (!token) {
-      return res.status(401).json({ error: 'Authorization token required' });
-    }
+app.post('/api/index', createIndexHandler({ getAuthToken }));
 
-    const { pages } = req.body;
-
-    if (!pages || !Array.isArray(pages)) {
-      return res.status(400).json({ error: 'pages array required' });
-    }
-
-    // Create indexing tasks
-    const taskIds: string[] = [];
-
-    for (const page of pages) {
-      if (!page.id || !page.spaceKey || !page.title) {
-        continue;
-      }
-
-      const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2)}`;
-      const task: IndexingTask = {
-        id: taskId,
-        pageId: page.id,
-        status: 'queued',
-        progress: 0,
-      };
-
-      indexingTasks.set(taskId, task);
-      taskQueue.push(task);
-      taskIds.push(taskId);
-    }
-
-    // Process tasks with pipeline
-
-    // Start processing in background
-    processPages(pages, token, {
-      concurrency: 3,
-      startDelay: 100,
-    }, (pageId, progress) => {
-      // Update task status
-      const task = Array.from(indexingTasks.values()).find(t => t.pageId === pageId);
-      if (task) {
-        task.status = progress.stage === 'completed' ? 'completed' :
-          progress.stage === 'error' ? 'error' : 'processing';
-        task.progress = progress.progress;
-        if (progress.error) {
-          task.error = progress.error;
-        }
-      }
-    }).catch(error => {
-      console.error('Background processing error:', error);
-    });
-
-    res.json({
-      message: 'Indexing started',
-      taskIds,
-      queuedCount: taskIds.length,
-    });
-  } catch (error) {
-    console.error('Error starting indexing:', error);
-    res.status(500).json({ error: 'Failed to start indexing' });
-  }
-});
-
-app.post('/api/index/descendants', createIndexDescendantsHandler({ getAuthToken, indexingTasks, taskQueue }));
+app.post('/api/index/descendants', createIndexDescendantsHandler({ getAuthToken }));
 
 app.delete('/api/index/:id', async (req: Request, res: Response) => {
   try {
@@ -252,19 +176,7 @@ app.delete('/api/index/:id', async (req: Request, res: Response) => {
 });
 
 // Get indexing status
-app.get('/api/status', (req: Request, res: Response) => {
-  const tasks = Array.from(indexingTasks.values());
-
-  const status = {
-    queued: tasks.filter(t => t.status === 'queued').length,
-    processing: tasks.filter(t => t.status === 'processing').length,
-    completed: tasks.filter(t => t.status === 'completed').length,
-    errors: tasks.filter(t => t.status === 'error').length,
-    tasks: tasks.slice(-20), // Return last 20 tasks for monitoring
-  };
-
-  res.json(status);
-});
+app.get('/api/status', statusHandler);
 
 // RAG search endpoint
 app.post('/api/rag/search', async (req: Request, res: Response) => {
@@ -341,4 +253,4 @@ Environment:
 // Start the server
 startServer();
 
-export { app, indexingTasks, taskQueue };
+export { app };
