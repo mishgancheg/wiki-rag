@@ -4,9 +4,10 @@
   "description": "Standalone Wiki-RAG application for Confluence indexing and semantic search",
   "main": "dist/server/server.js",
   "scripts": {
-    "build": "tsc",
+    "tsoa:spec": "tsoa spec",
+    "build": "tsoa spec && tsc",
     "start": "node dist/server.js",
-    "dev": "tsc && node dist/server.js",
+    "dev": "tsoa spec && tsc && node dist/server.js",
     "db:migrate": "node dist/server/init-db/init-db.js",
     "mock:wiki": "node wiki-mock-server/wiki-mock-server.js"
   },
@@ -21,14 +22,18 @@
     "pgvector": "^0.1.8",
     "p-limit": "^3.1.0",
     "openai-chat-tokens": "^0.2.8",
-    "rate-limiter-flexible": "^7.1.1"
+    "rate-limiter-flexible": "^7.1.1",
+    "swagger-ui-express": "^5.0.1",
+    "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
     "typescript": "^5.5.3",
     "@types/express": "^4.17.17",
     "@types/cors": "^2.8.13",
     "@types/node": "^20.5.0",
-    "@types/pg": "^8.10.2"
+    "@types/pg": "^8.10.2",
+    "tsoa": "^6.6.0",
+    "@types/swagger-ui-express": "^4.1.8"
   },
   "private": true
 }

@@ -1,0 +1,37 @@
+{
+  "entryFile": "server/server.ts",
+  "noImplicitAdditionalProperties": "silently-remove-extras",
+  "controllerPathGlobs": [
+    "server/controllers/**/*Controller.ts"
+  ],
+  "spec": {
+    "outputDirectory": "public",
+    "specVersion": 3,
+    "basePath": "/",
+    "schemes": ["http"],
+    "host": "localhost:3000",
+    "name": "Wiki-RAG API",
+    "description": "Swagger documentation for Wiki-RAG endpoints",
+    "version": "1.0.0",
+    "tags": [
+      {"name": "Health"},
+      {"name": "Wiki"},
+      {"name": "Indexing"},
+      {"name": "RAG"},
+      {"name": "Chat"}
+    ],
+    "securityDefinitions": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "security": [
+      {"bearerAuth": []}
+    ]
+  },
+  "routes": {
+    "routesDir": "server"
+  }
+}

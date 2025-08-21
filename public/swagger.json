@@ -1,0 +1,765 @@
+{
+	"openapi": "3.0.0",
+	"components": {
+		"examples": {},
+		"headers": {},
+		"parameters": {},
+		"requestBodies": {},
+		"responses": {},
+		"schemas": {
+			"HealthResponse": {
+				"properties": {
+					"status": {
+						"type": "string",
+						"enum": [
+							"ok"
+						],
+						"nullable": false
+					},
+					"timestamp": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"status",
+					"timestamp"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"WikiSpace": {
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"key": {
+						"type": "string"
+					},
+					"name": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"key",
+					"name"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"WikiPageItem": {
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"spaceKey": {
+						"type": "string"
+					},
+					"title": {
+						"type": "string"
+					},
+					"url": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"spaceKey",
+					"title"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"PageHtmlResponse": {
+				"properties": {
+					"title": {
+						"type": "string"
+					},
+					"html": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"title",
+					"html"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"IndexedIdsRequest": {
+				"properties": {
+					"ids": {
+						"items": {
+							"type": "string"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"ids"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"IndexStartResponse": {
+				"properties": {
+					"message": {
+						"type": "string"
+					},
+					"taskIds": {
+						"items": {
+							"type": "string"
+						},
+						"type": "array"
+					},
+					"queuedCount": {
+						"type": "number",
+						"format": "double"
+					}
+				},
+				"required": [
+					"message",
+					"taskIds",
+					"queuedCount"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"IndexPagesRequestPage": {
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"spaceKey": {
+						"type": "string"
+					},
+					"title": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"spaceKey",
+					"title"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"IndexPagesRequest": {
+				"properties": {
+					"pages": {
+						"items": {
+							"$ref": "#/components/schemas/IndexPagesRequestPage"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"pages"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"DeleteIndexResponse": {
+				"properties": {
+					"message": {
+						"type": "string"
+					},
+					"pageId": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"message",
+					"pageId"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"StatusTaskItem": {
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"pageId": {
+						"type": "string"
+					},
+					"status": {
+						"type": "string",
+						"enum": [
+							"queued",
+							"processing",
+							"completed",
+							"error"
+						]
+					},
+					"error": {
+						"type": "string"
+					},
+					"progress": {
+						"type": "number",
+						"format": "double"
+					}
+				},
+				"required": [
+					"id",
+					"pageId",
+					"status"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"QueueStatus": {
+				"properties": {
+					"queued": {
+						"type": "number",
+						"format": "double"
+					},
+					"processing": {
+						"type": "number",
+						"format": "double"
+					},
+					"completed": {
+						"type": "number",
+						"format": "double"
+					},
+					"errors": {
+						"type": "number",
+						"format": "double"
+					},
+					"tasks": {
+						"items": {
+							"$ref": "#/components/schemas/StatusTaskItem"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"queued",
+					"processing",
+					"completed",
+					"errors",
+					"tasks"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"RagSearchChunk": {
+				"properties": {
+					"wiki_id": {
+						"type": "string"
+					},
+					"content": {
+						"type": "string"
+					},
+					"similarity": {
+						"type": "number",
+						"format": "double"
+					}
+				},
+				"required": [
+					"wiki_id",
+					"content",
+					"similarity"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"RagSearchResponse": {
+				"properties": {
+					"matches": {
+						"items": {
+							"$ref": "#/components/schemas/RagSearchChunk"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"matches"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"RagSearchRequest": {
+				"properties": {
+					"query": {
+						"type": "string"
+					},
+					"threshold": {
+						"type": "number",
+						"format": "double"
+					},
+					"chunksLimit": {
+						"type": "number",
+						"format": "double"
+					}
+				},
+				"required": [
+					"query"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"ChatResponse": {
+				"properties": {
+					"reply": {
+						"type": "string"
+					},
+					"sources": {
+						"items": {
+							"$ref": "#/components/schemas/RagSearchChunk"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"reply"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"ChatMessage": {
+				"properties": {
+					"role": {
+						"type": "string",
+						"enum": [
+							"user",
+							"assistant",
+							"system"
+						]
+					},
+					"content": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"role",
+					"content"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"ChatRequest": {
+				"properties": {
+					"messages": {
+						"items": {
+							"$ref": "#/components/schemas/ChatMessage"
+						},
+						"type": "array"
+					},
+					"threshold": {
+						"type": "number",
+						"format": "double"
+					},
+					"chunksLimit": {
+						"type": "number",
+						"format": "double"
+					}
+				},
+				"required": [
+					"messages"
+				],
+				"type": "object",
+				"additionalProperties": false
+			}
+		},
+		"securitySchemes": {
+			"bearerAuth": {
+				"type": "http",
+				"scheme": "bearer",
+				"bearerFormat": "JWT"
+			}
+		}
+	},
+	"info": {
+		"title": "Wiki-RAG API",
+		"version": "1.0.0",
+		"description": "Swagger documentation for Wiki-RAG endpoints",
+		"contact": {}
+	},
+	"paths": {
+		"/api/health": {
+			"get": {
+				"operationId": "Health",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/HealthResponse"
+								}
+							}
+						}
+					}
+				},
+				"description": "Health check",
+				"tags": [
+					"Health"
+				],
+				"security": [],
+				"parameters": []
+			}
+		},
+		"/api/wiki/spaces": {
+			"get": {
+				"operationId": "GetSpaces",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/WikiSpace"
+									},
+									"type": "array"
+								}
+							}
+						}
+					}
+				},
+				"description": "Get spaces (requires Authorization: Bearer token)",
+				"tags": [
+					"Wiki"
+				],
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"parameters": []
+			}
+		},
+		"/api/wiki/pages": {
+			"get": {
+				"operationId": "GetPages",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/WikiPageItem"
+									},
+									"type": "array"
+								}
+							}
+						}
+					}
+				},
+				"description": "Get pages list by space key",
+				"tags": [
+					"Wiki"
+				],
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"in": "query",
+						"name": "spaceKey",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
+		"/api/wiki/children": {
+			"get": {
+				"operationId": "GetChildren",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/WikiPageItem"
+									},
+									"type": "array"
+								}
+							}
+						}
+					}
+				},
+				"description": "Get children by parentId",
+				"tags": [
+					"Wiki"
+				],
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"in": "query",
+						"name": "parentId",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
+		"/api/wiki/page": {
+			"get": {
+				"operationId": "GetPage",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PageHtmlResponse"
+								}
+							}
+						}
+					}
+				},
+				"description": "Get page HTML by id",
+				"tags": [
+					"Wiki"
+				],
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"in": "query",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
+		"/api/indexed-ids": {
+			"post": {
+				"operationId": "GetIndexedIds",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"type": "string"
+									},
+									"type": "array"
+								}
+							}
+						}
+					}
+				},
+				"description": "Check which IDs are already indexed",
+				"tags": [
+					"Indexing"
+				],
+				"security": [],
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/IndexedIdsRequest"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/index": {
+			"post": {
+				"operationId": "StartIndexing",
+				"responses": {
+					"200": {
+						"description": "Indexing started",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/IndexStartResponse"
+								}
+							}
+						}
+					}
+				},
+				"description": "Start indexing of provided pages",
+				"tags": [
+					"Indexing"
+				],
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/IndexPagesRequest"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/index/{id}": {
+			"delete": {
+				"operationId": "DeleteIndex",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/DeleteIndexResponse"
+								}
+							}
+						}
+					}
+				},
+				"description": "Remove page from index",
+				"tags": [
+					"Indexing"
+				],
+				"security": [],
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
+		"/api/status": {
+			"get": {
+				"operationId": "Status",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/QueueStatus"
+								}
+							}
+						}
+					}
+				},
+				"description": "Get queue/status",
+				"tags": [
+					"Indexing"
+				],
+				"security": [],
+				"parameters": []
+			}
+		},
+		"/api/rag/search": {
+			"post": {
+				"operationId": "RagSearch",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/RagSearchResponse"
+								}
+							}
+						}
+					}
+				},
+				"description": "Vector search",
+				"tags": [
+					"RAG"
+				],
+				"security": [],
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/RagSearchRequest"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/chat": {
+			"post": {
+				"operationId": "Chat",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ChatResponse"
+								}
+							}
+						}
+					}
+				},
+				"description": "Chat: intent -> rag -> answer",
+				"tags": [
+					"Chat"
+				],
+				"security": [],
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/ChatRequest"
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"servers": [
+		{
+			"url": "http://localhost:3000/"
+		}
+	],
+	"tags": [
+		{
+			"name": "Health"
+		},
+		{
+			"name": "Wiki"
+		},
+		{
+			"name": "Indexing"
+		},
+		{
+			"name": "RAG"
+		},
+		{
+			"name": "Chat"
+		}
+	]
+}

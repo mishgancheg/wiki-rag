@@ -6,6 +6,7 @@ import { fetchSpaces, fetchPagesBySpace, fetchChildren, fetchPageHtml } from './
 import { processPages } from './pipeline.js';
 import { ragSearch } from './rag.js';
 import { handleChatRequest } from './chat.js';
+import swaggerUi from 'swagger-ui-express';
 
 // Validate configuration on startup
 validateConfig();
@@ -20,6 +21,18 @@ app.use(express.urlencoded({ extended: true }));
 // Serve static files from public directory
 const publicPath = path.join(process.cwd(), 'public');
 app.use(express.static(publicPath));
+
+// Swagger UI served at /docs using generated spec at /public/swagger.json
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(undefined, {
+  swaggerUrl: '/swagger.json',
+  swaggerOptions: {
+    persistAuthorization: true,
+    displayRequestDuration: true,
+    tryItOutEnabled: true,
+    filter: true,
+    showExtensions: true
+  }
+}));
 
 // Store for tracking indexing progress
 interface IndexingTask {
