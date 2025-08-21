@@ -1,5 +1,5 @@
 import { Pool, PoolClient } from 'pg';
-import { config } from './config.js';
+import { config } from '../config';
 import pgvector from 'pgvector/pg';
 
 // PostgreSQL connection pool

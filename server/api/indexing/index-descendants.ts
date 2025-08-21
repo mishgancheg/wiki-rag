@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { fetchDescendants } from '../../confluence';
+import { fetchDescendants } from '../../lib/confluence';
 import { processPages } from './pipeline';
 import { IndexingTask, indexingTasks, taskQueue } from './index';
 

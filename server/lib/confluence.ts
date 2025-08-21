@@ -1,6 +1,6 @@
 import https from 'https';
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
-import { config } from './config.js';
+import { config } from '../config';
 
 // Confluence API client
 export class ConfluenceClient {

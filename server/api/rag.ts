@@ -1,5 +1,5 @@
-import { getEmbeddingForText } from '../embeddings';
-import { searchSimilar } from '../db';
+import { getEmbeddingForText } from '../lib/embeddings';
+import { searchSimilar } from '../lib/db';
 
 export interface RagSearchParams {
   query: string;

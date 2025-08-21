@@ -1,8 +1,8 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
 import { config, validateConfig } from './config.js';
-import { initializePool, closePool, getIndexedWikiIds, deleteByWikiId } from './db.js';
-import { fetchSpaces, fetchPagesBySpace, fetchChildren, fetchPageHtml } from './confluence.js';
+import { initializePool, closePool, getIndexedWikiIds, deleteByWikiId } from './lib/db';
+import { fetchSpaces, fetchPagesBySpace, fetchChildren, fetchPageHtml } from './lib/confluence';
 import { ragSearch } from './api/rag';
 import { handleChatRequest } from './api/chat';
 import swaggerUi from 'swagger-ui-express';

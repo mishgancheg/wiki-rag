@@ -1,10 +1,10 @@
 import pLimit from 'p-limit';
-import { fetchPageHtml, ConfluencePageContent } from '../../confluence';
-import { cleanHtml } from '../../cleanHtml';
+import { fetchPageHtml, ConfluencePageContent } from '../../lib/confluence';
+import { cleanHtml } from '../../lib/cleanHtml';
 import { splitIntoChunks, addSourceMetadata } from '../../chunker/splitIntoChunks';
 import { generateQuestionsForChunk } from '../../chunker/questions';
-import { getEmbeddingsForTexts } from '../../embeddings';
-import { insertChunk, insertQuestion, deleteByWikiId } from '../../db';
+import { getEmbeddingsForTexts } from '../../lib/embeddings';
+import { insertChunk, insertQuestion, deleteByWikiId } from '../../lib/db';
 import * as cheerio from 'cheerio';
 
 // Interface for pipeline result

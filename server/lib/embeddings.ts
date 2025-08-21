@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { config } from './config.js';
+import { config } from '../config';
 import { stringTokens } from 'openai-chat-tokens';
 
 // Initialize OpenAI client
