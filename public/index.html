@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wiki-RAG - Confluence Indexing & Search</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -20,6 +21,7 @@
                 <button class="tab active" onclick="switchTab('wiki-management')"><span class="tab-title">Wiki Indexing Management</span><span id="token-icon-btn" class="tab-icon-btn" title="Confluence Personal Access Token" aria-label="Confluence Personal Access Token" tabindex="0">🔑</span></button>
                 <button class="tab" onclick="switchTab('semantic-search')"><span class="tab-title">Semantic Search</span></button>
                 <button class="tab" onclick="switchTab('chat')">💬 Chat</button>
+                <button class="tab" onclick="switchTab('swagger')">📘 Swagger</button>
             </div>
         </div>
 
@@ -158,6 +160,13 @@
                         <button id="clearBtn" class="btn btn-secondary">🧹 Очистить историю</button>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Swagger Tab -->
+        <div id="swagger" class="tab-content">
+            <div class="panel" style="height: calc(100vh - 220px);">
+                <iframe src="/docs" title="Swagger UI" style="width: 100%; height: 100%; border: 0; background: #fff;"></iframe>
             </div>
         </div>
 
