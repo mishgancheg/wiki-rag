@@ -4,7 +4,7 @@ import { config, validateConfig } from './config.js';
 import { initializePool, closePool, getIndexedWikiIds, deleteByWikiId } from './lib/db';
 import { fetchSpaces, fetchPagesBySpace, fetchChildren, fetchPageHtml } from './lib/confluence';
 import { ragSearch } from './api/rag';
-import { handleChatRequest } from './api/chat';
+import { handleChatRequest } from './api/chat/chat';
 import swaggerUi from 'swagger-ui-express';
 import { createIndexDescendantsHandler } from './api/indexing/index-descendants';
 import { createIndexHandler, statusHandler } from './api/indexing';

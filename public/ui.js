@@ -65,20 +65,42 @@ function render() {
             label.textContent = 'источники: ';
             meta.appendChild(label);
 
-            // Build list of links with CS
-            m.sources.forEach((s, idx) => {
+            // Build grouped list of links by wiki_id with chunk_ids and CS
+            const groups = [];
+            const map = new Map(); // wiki_id -> group
+            m.sources.forEach((s) => {
+                const key = String(s.wiki_id);
+                let group = map.get(key);
+                if (!group) {
+                    group = { wiki_id: s.wiki_id, items: [] };
+                    map.set(key, group);
+                    groups.push(group);
+                }
+                group.items.push({ chunk_id: s.chunk_id, similarity: s.similarity });
+            });
+
+            groups.forEach((g, idx) => {
                 const span = document.createElement('span');
                 const a = document.createElement('a');
-                a.href = getWikiUrl(s.wiki_id);
-                a.textContent = String(s.wiki_id);
+                a.href = getWikiUrl(g.wiki_id);
+                a.textContent = String(g.wiki_id);
                 a.target = '_blank';
                 a.rel = 'noopener noreferrer';
                 span.appendChild(a);
-                const cs = document.createElement('span');
-                cs.textContent = ` (CS=${Number(s.similarity).toFixed(3)})`;
-                span.appendChild(cs);
+
+                const details = document.createElement('span');
+                if (g.items.length === 1) {
+                    // Single chunk: show only CS like before
+                    const cs = Number(g.items[0].similarity).toFixed(3);
+                    details.textContent = ` (CS=${cs})`;
+                } else {
+                    // Multiple chunks: list chunk_id - CS pairs
+                    const parts = g.items.map(it => `${it.chunk_id} - CS=${Number(it.similarity).toFixed(3)}`);
+                    details.textContent = ` (${parts.join(', ')})`;
+                }
+                span.appendChild(details);
                 meta.appendChild(span);
-                if (idx < m.sources.length - 1) {
+                if (idx < groups.length - 1) {
                     meta.appendChild(document.createTextNode(', '));
                 }
             });
