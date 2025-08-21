@@ -14,3 +14,4 @@ public\chat.html
 
 ===========================
 
+Перенеси Queue Process Done Error в место рядом с wiki management, чтобы освободить пространство сверху
