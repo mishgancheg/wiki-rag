@@ -11,12 +11,26 @@ function switchTab(tabId) {
     });
 
     // Show selected tab content
-    document.getElementById(tabId).classList.add('active');
+    const target = document.getElementById(tabId);
+    if (target) target.classList.add('active');
 
-    // Add active class to clicked tab
-    // Note: relies on inline onclick handler context providing `event`
+    // Persist active tab id
+    try { localStorage.setItem('activeTabId', tabId); } catch (_) {}
+
+    // Add active class to the correct tab button
+    // 1) If we came from a click, prefer the clicked button (or its closest .tab ancestor)
     if (typeof event !== 'undefined' && event && event.target) {
-        event.target.classList.add('active');
+        const btn = event.target.closest ? event.target.closest('.tab') : event.target;
+        if (btn && btn.classList) btn.classList.add('active');
+    } else {
+        // 2) No event: find the button by its inline onclick attribute
+        const tabs = document.querySelectorAll('.tab');
+        tabs.forEach(btn => {
+            const on = btn.getAttribute('onclick') || '';
+            if (on.includes("'" + tabId + "'") || on.includes('"' + tabId + '"')) {
+                btn.classList.add('active');
+            }
+        });
     }
 
     // Focus input for chat tab
@@ -33,6 +47,32 @@ const messagesEl = document.getElementById('messages');
 const inputEl = document.getElementById('input');
 const sendBtn = document.getElementById('sendBtn');
 const clearBtn = document.getElementById('clearBtn');
+
+// Restore active tab on load (after DOM is ready enough for elements to exist)
+(function restoreActiveTab() {
+    try {
+        const saved = localStorage.getItem('activeTabId');
+        if (saved && document.getElementById(saved)) {
+            // Activate the saved tab
+            switchTab(saved);
+        }
+    } catch (_) {}
+})();
+
+// Persist and restore chat input
+(function initChatInputPersistence() {
+    if (!inputEl) return;
+    try {
+        const saved = localStorage.getItem('chatInput') || '';
+        if (saved) {
+            inputEl.value = saved;
+        }
+    } catch (_) {}
+
+    inputEl.addEventListener('input', () => {
+        try { localStorage.setItem('chatInput', inputEl.value); } catch (_) {}
+    });
+})();
 
 /**
  * Chat history in OpenAI-like shape: { role, content }
@@ -129,6 +169,7 @@ async function sendMessage() {
     const text = (inputEl && inputEl.value || '').trim();
     if (!text) return;
     inputEl.value = '';
+    try { localStorage.removeItem('chatInput'); } catch (_) {}
 
     history.push({ role: 'user', content: text });
     render();

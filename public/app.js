@@ -119,6 +119,10 @@ class WikiRAGApp {
         this.performSearch();
       }
     });
+    // Persist RAG search input text
+    this.searchQuery.addEventListener('input', () => {
+      try { localStorage.setItem('ragSearchQuery', this.searchQuery.value); } catch (_) {}
+    });
   }
 
   initializeApp () {
@@ -126,6 +130,15 @@ class WikiRAGApp {
     if (this.token) {
       this.tokenInput.value = this.token;
     }
+
+    // Restore RAG search input text
+    try {
+      const savedQuery = localStorage.getItem('ragSearchQuery');
+      if (savedQuery) {
+        this.searchQuery.value = savedQuery;
+      }
+    } catch (_) {}
+
     // Auto-load spaces on page load
     if (this.token) {
       // If token already known, load spaces immediately
@@ -755,13 +768,16 @@ class WikiRAGApp {
     const resultsHtml = results.results.map(result => `
             <div class="search-result">
                 <div class="similarity">${(result.similarity * 100).toFixed(1)}%</div>
-                <h4>Wiki ID: <a href="${buildWikiUrl(result.wiki_id)}" target="_blank" rel="noopener noreferrer">${result.wiki_id}</a></h4>
-                <p style="margin: 0.5rem 0; color: #666; font-size: 0.9rem;">
-                    Source: ${result.source} | Chunk ID: ${result.chunk_id}
-                </p>
-                <div style="white-space: pre-wrap; font-family: monospace; background: #f8f9fa; padding: 0.5rem; border-radius: 4px; font-size: 0.9rem;">
-                    ${result.chunk.substring(0, 300)}${result.chunk.length > 300 ? '...' : ''}
+                <div class="found-by" style="margin: 0.25rem 0; color: #444; font-size: 0.9rem;">
+                  ${result.question ? `Найдено по вопросу: <b>${result.question}</b>` : 'Найдено по тексту чанка'}
                 </div>
+                <h4>Wiki ID: <a href="${buildWikiUrl(result.wiki_id)}" target="_blank" rel="noopener noreferrer">${result.wiki_id}</a> Chunk ID: ${result.chunk_id}</h4>
+                <details class="chunk-details">
+                  <summary style="cursor: pointer; user-select: none; color: #0d6efd;">Показать содержимое</summary>
+                  <div style="white-space: pre-wrap; font-family: monospace; background: #f8f9fa; padding: 0.5rem; border-radius: 4px; font-size: 0.9rem; margin-top: 0.5rem;">
+                    ${result.chunk}
+                  </div>
+                </details>
             </div>
         `).join('');
 

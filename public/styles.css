@@ -338,9 +338,10 @@ body {
   background: #3498db;
   color: white;
   padding: 0.25rem 0.5rem;
+  margin-right: 0.5rem;
   border-radius: 12px;
   font-size: 0.8rem;
-  float: right;
+  float: left;
 }
 
 .loading {
