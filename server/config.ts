@@ -14,6 +14,7 @@ export interface Config {
   openaiApiKey: string;
   modelForChunks: string;
   modelForQuestions: string;
+  modelForChat: string;
   openaiEmbeddingModel: string;
 
   // Network / TLS
@@ -37,8 +38,11 @@ export const config: Config = {
 
   // OpenAI Configuration
   openaiApiKey: process.env.OPENAI_API_KEY || '',
+
   modelForChunks: process.env.MODEL_FOR_CHUNKS || 'gpt-4.1',
   modelForQuestions: process.env.MODEL_FOR_QUESTIONS || 'gpt-4.1',
+  modelForChat: process.env.MODEL_FOR_CHAT || 'gpt-4.1',
+
   openaiEmbeddingModel: process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-large',
 
   // Network / TLS
