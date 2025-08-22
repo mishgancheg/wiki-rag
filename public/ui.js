@@ -84,11 +84,11 @@ function render() {
     messagesEl.innerHTML = '';
 
     const getWikiUrl = (id) => {
-        const base = (window.CONFLUENCE_BASE_URL || localStorage.getItem('CONFLUENCE_BASE_URL') || '').toString();
+        const base = (window.CONFLUENCE_BASE_URL || localStorage.getItem('CONFLUENCE_BASE_URL') || process.env.CONFLUENCE_BASE_URL || '').toString();
         const cleanBase = base.replace(/\/$/, '');
         if (cleanBase) return `${cleanBase}/pages/viewpage.action?pageId=${encodeURIComponent(id)}`;
-        // Fallback to example base if not provided; adjust via window.CONFLUENCE_BASE_URL at runtime
-        return `https://wiki.finam.ru/pages/viewpage.action?pageId=${encodeURIComponent(id)}`;
+        // Fallback if no base URL is configured
+        return `/pages/viewpage.action?pageId=${encodeURIComponent(id)}`;
     };
 
     for (const m of history) {
